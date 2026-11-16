@@ -36,57 +36,6 @@ body {
   color: var(--color-text-secondary);
 }
 
-.connection {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-block-start: 1.5rem;
-  padding: 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-
-.connection-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: var(--radius-pill);
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.connection-status[data-state='ready'] {
-  background: var(--color-success-soft);
-  color: var(--color-on-success-soft);
-}
-
-.connection-status[data-state='unavailable'] {
-  background: var(--color-notice-soft);
-  color: var(--color-on-notice-soft);
-}
-
-.status-dot {
-  flex: none;
-  inline-size: 0.5rem;
-  block-size: 0.5rem;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-[data-state='ready'] > .status-dot {
-  background: var(--color-success);
-}
-
-[data-state='unavailable'] > .status-dot {
-  background: var(--color-notice);
-}
-
 .button-primary {
   min-inline-size: 2.75rem;
   min-block-size: 3rem;

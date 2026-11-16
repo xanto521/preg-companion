@@ -14,6 +14,23 @@ class Base(DeclarativeBase):
     pass
 
 
+class RecorderAccount(Base):
+    __tablename__ = "recorder_account"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_recorder_account_singleton"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    password_hash: Mapped[str | None] = mapped_column(Text)
+    setup_hash: Mapped[str | None] = mapped_column(Text)
+    setup_expires_at: Mapped[datetime | None]
+
+
+class RecorderSession(Base):
+    __tablename__ = "recorder_session"
+
+    token_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    expires_at: Mapped[datetime]
+
+
 class VersionedRecord:
     version: Mapped[int] = mapped_column(server_default=text("1"))
     updated_at: Mapped[datetime] = mapped_column(default=utc_now, onupdate=utc_now)
@@ -52,6 +69,7 @@ class Checkup(SoftDeletedRecord, Base):
     pregnancy_id: Mapped[int] = mapped_column(ForeignKey("pregnancy.id"))
     visit_date: Mapped[date]
     visit_time: Mapped[time | None]
+    ga_days: Mapped[int | None]
     hospital: Mapped[str | None] = mapped_column(Text)
     doctor: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
@@ -169,7 +187,10 @@ class Note(SoftDeletedRecord, Base):
 
 class Attachment(Base):
     __tablename__ = "attachment"
-    __table_args__ = (Index("ix_attachment_owner", "owner_type", "owner_id"),)
+    __table_args__ = (
+        Index("ix_attachment_owner", "owner_type", "owner_id"),
+        Index("ix_attachment_sha256", "sha256"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_type: Mapped[str] = mapped_column(Text)

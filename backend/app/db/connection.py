@@ -4,10 +4,16 @@ from sqlite3 import Connection
 from sqlalchemy import Engine, event
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
+from sqlalchemy.orm import Session
 
 
 def sqlite_url(path: Path) -> URL:
     return URL.create("sqlite+pysqlite", database=str(path))
+
+
+def start_write(session: Session) -> None:
+    # Reserve SQLite's writer lock before reading records that will be modified.
+    session.connection().exec_driver_sql("BEGIN IMMEDIATE")
 
 
 def create_sqlite_engine(path: Path) -> Engine:

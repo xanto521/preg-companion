@@ -6,6 +6,8 @@ import DailyJournal from '../components/DailyJournal.vue'
 import MilestoneSettings from '../components/MilestoneSettings.vue'
 import NotesQuestions from '../components/NotesQuestions.vue'
 import PregnancyForm from '../components/PregnancyForm.vue'
+import RecorderTrends from '../components/RecorderTrends.vue'
+import ShareLinks from '../components/ShareLinks.vue'
 import RecordingShortcuts from '../components/RecordingShortcuts.vue'
 import SupplementJournal from '../components/SupplementJournal.vue'
 import { displayTime, gestationLabel, sources } from '../components/pregnancy'
@@ -187,6 +189,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
       <span class="app-name">孕期陪伴</span>
       <div v-if="session?.authenticated && view === 'home'" class="settings-controls">
         <button class="button-text" type="button" :disabled="busy" @click="changeView('milestones')">里程碑与日历</button>
+        <button class="button-text" type="button" :disabled="busy" @click="changeView('share')">家人分享</button>
         <button class="button-text" type="button" :disabled="busy" @click="logout">退出登录</button>
       </div>
     </header>
@@ -227,6 +230,14 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
       <PregnancyForm v-else-if="view === 'pregnancy'" :snapshot="snapshot"
         @saved="pregnancySaved" @close="changeView('home')" @failed="fail" />
       <MilestoneSettings v-else-if="view === 'milestones'" @close="changeView('home')" @failed="fail" />
+      <RecorderTrends v-else-if="view === 'trends'" @close="changeView('home')" @failed="fail" />
+      <template v-else-if="view === 'share'">
+        <div class="page-heading">
+          <h1>家人分享</h1>
+          <button class="button-text" type="button" @click="changeView('home')">返回</button>
+        </div>
+        <ShareLinks scope="view" @failed="fail" />
+      </template>
       <DailyJournal v-else-if="view === 'daily' || view === 'symptoms'" :today="snapshot.today"
         :focus-symptoms="view === 'symptoms'" @close="changeView('home')" @failed="fail" />
       <SupplementJournal v-else-if="view === 'supplements'" :today="snapshot.today"
@@ -269,7 +280,10 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
         <section class="checkup-section">
           <div class="section-heading">
             <h2>产检记录</h2>
-            <button v-if="pregnancy" class="button-primary" type="button" :disabled="busy" @click="openCheckup()">录入产检</button>
+            <div class="settings-controls">
+              <button class="button-text" type="button" :disabled="busy" @click="changeView('trends')">指标趋势</button>
+              <button v-if="pregnancy" class="button-primary" type="button" :disabled="busy" @click="openCheckup()">录入产检</button>
+            </div>
           </div>
           <p v-if="!records.length" class="panel empty-records">还没有产检记录。</p>
           <ul v-else class="record-list">

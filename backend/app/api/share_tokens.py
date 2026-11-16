@@ -10,15 +10,15 @@ from app.db.connection import start_write
 from app.db.models import ShareToken, utc_now
 from app.db.session import Database
 from app.security.recorder import new_token, token_digest
+from app.security.sharing import CALENDAR_SCOPE, Scope
 
-router = APIRouter(prefix="/share-tokens", tags=["calendar subscriptions"], dependencies=[Depends(require_recorder)])
-CALENDAR_SCOPE = "calendar"
+router = APIRouter(prefix="/share-tokens", tags=["share links"], dependencies=[Depends(require_recorder)])
 
 
 class SubscriptionInput(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-    scope: Literal["calendar"] = CALENDAR_SCOPE
+    scope: Scope = CALENDAR_SCOPE
     label: str | None = Field(default=None, max_length=80)
     expires_in_days: int | None = Field(default=None, ge=1, le=366)
 
@@ -51,8 +51,8 @@ def describe(token: ShareToken) -> Subscription:
 
 
 @router.get("")
-def list_subscriptions(db: Database) -> list[Subscription]:
-    tokens = db.scalars(select(ShareToken).where(ShareToken.scope == CALENDAR_SCOPE).order_by(ShareToken.id.desc()))
+def list_subscriptions(db: Database, scope: Scope = CALENDAR_SCOPE) -> list[Subscription]:
+    tokens = db.scalars(select(ShareToken).where(ShareToken.scope == scope).order_by(ShareToken.id.desc()))
     return [describe(token) for token in tokens]
 
 
@@ -68,17 +68,18 @@ def issue_subscription(payload: SubscriptionInput, request: Request, db: Databas
     db.add(token)
     db.commit()
     return SubscriptionCreated(
-        **describe(token).model_dump(), path=f"/cal/{raw}.ics",
+        **describe(token).model_dump(),
+        path=f"/cal/{raw}.ics" if payload.scope == CALENDAR_SCOPE else f"/view/{raw}",
         public_origin=None if settings.public_domain == "localhost" else f"https://{settings.public_domain}",
     )
 
 
 @router.delete("/{token_id}", status_code=204)
-def revoke_subscription(token_id: int, db: Database) -> None:
+def revoke_subscription(token_id: int, db: Database, scope: Scope = CALENDAR_SCOPE) -> None:
     start_write(db)
     token = db.get(ShareToken, token_id)
-    if token is None or token.scope != CALENDAR_SCOPE:
-        raise HTTPException(404, "这条日历订阅不存在。")
+    if token is None or token.scope != scope:
+        raise HTTPException(404, "这条链接不存在。")
     if token.revoked_at is None:
         token.revoked_at = utc_now()
         db.commit()

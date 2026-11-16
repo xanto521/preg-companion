@@ -1,0 +1,29 @@
+.family-shell {
+  box-sizing: border-box;
+  inline-size: min(100%, 35rem);
+  margin-inline: auto;
+  padding: 0 1rem max(2rem, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 0.875rem;
+}
+
+.family-shell h1, .family-shell h2, .family-shell p { margin: 0; }
+.family-heading { padding-block: 1rem; border-block-end: 1px solid var(--color-border); }
+.family-heading h1 { font-size: 1.375rem; font-weight: 500; }
+.family-shell h2 { font-size: 1.0625rem; font-weight: 500; }
+.family-panel { display: grid; gap: 0.5rem; min-inline-size: 0; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1rem; background: var(--color-surface); }
+.family-gestation { background: var(--color-primary-soft); color: var(--color-primary); border-color: transparent; }
+.family-week { font-size: 1.75rem; font-weight: 500; }
+.family-next { background: var(--color-accent-soft); color: var(--color-on-accent-soft); border-color: transparent; }
+.family-secondary, .family-footer, .family-entry-heading time { color: var(--color-text-secondary); font-size: 0.875rem; }
+.family-footer { text-align: center; padding: 0.5rem; }
+.family-entry-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.family-timeline, .family-tags { list-style: none; padding: 0; margin: 0; }
+.family-timeline > li { display: grid; gap: 0.375rem; padding-block: 0.75rem; border-block-start: 1px solid var(--color-border); overflow-wrap: anywhere; }
+.family-entry-heading, .family-tags { display: flex; flex-wrap: wrap; gap: 0.375rem 0.75rem; align-items: baseline; }
+.family-entry-heading { justify-content: space-between; }
+.family-entry-heading strong { min-inline-size: 0; }
+.family-tags li { padding: 0.125rem 0.5rem; background: var(--color-primary-soft); color: var(--color-primary); border-radius: var(--radius-pill); font-size: 0.875rem; }
+.family-meals { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.25rem 0.5rem; margin: 0; font-size: 0.875rem; }
+.family-meals dt { color: var(--color-text-secondary); }
+.family-meals dd { margin: 0; }

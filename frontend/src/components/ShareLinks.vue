@@ -2,6 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { api } from '../api/recorder'
 
+const props = defineProps({ scope: { type: String, default: 'calendar' } })
+const calendar = props.scope === 'calendar'
+const heading = calendar ? 'ICS 日历订阅' : '家人查看链接'
 const emit = defineEmits(['failed'])
 const subscriptions = ref([])
 const busy = ref(true)
@@ -25,7 +28,7 @@ async function load() {
   busy.value = true
   error.value = ''
   try {
-    subscriptions.value = await api('/share-tokens')
+    subscriptions.value = await api('/share-tokens?scope=' + props.scope)
   } catch (problem) {
     fail(problem)
   } finally {
@@ -40,7 +43,7 @@ async function createLink() {
   try {
     const created = await api('/share-tokens', {
       method: 'POST',
-      data: { label: label.value, expires_in_days: duration.value || null },
+      data: { scope: props.scope, label: label.value, expires_in_days: duration.value || null },
     })
     const { path, public_origin: origin, ...subscription } = created
     newLink.value = new URL(path, origin || window.location.origin).href
@@ -58,7 +61,7 @@ async function copyLink() {
   try {
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(newLink.value)
-      notice.value = '已复制订阅链接。'
+      notice.value = calendar ? '已复制订阅链接。' : '已复制家人查看链接。'
       return
     }
   } catch {}
@@ -73,7 +76,7 @@ async function revoke() {
   notice.value = ''
   const id = revoking.value
   try {
-    await api(`/share-tokens/${id}`, { method: 'DELETE' })
+    await api(`/share-tokens/${id}?scope=${props.scope}`, { method: 'DELETE' })
     if (newLinkId.value === id) {
       newLink.value = ''
       newLinkId.value = null
@@ -94,11 +97,12 @@ onMounted(load)
 
 <template>
   <section class="panel fields" aria-labelledby="calendar-heading">
-    <h2 id="calendar-heading">ICS 日历订阅</h2>
-    <p class="settings-help">将链接添加到手机的日历订阅。日历使用通用标题，产检仅同步允许家人查看的下次预约。</p>
+    <h2 id="calendar-heading">{{ heading }}</h2>
+    <p v-if="calendar" class="settings-help">将链接添加到手机的日历订阅。日历使用通用标题，产检仅同步允许家人查看的下次预约。</p>
+    <p v-else class="settings-help">持有链接的家人可查看你标记为可见的记录和指标。你可以为不同家人生成独立链接。</p>
     <form class="fields" @submit.prevent="createLink">
       <div class="field-row">
-        <label class="field"><span>链接名称 <small>选填</small></span><input v-model="label" maxlength="80" placeholder="例如：我的手机"></label>
+        <label class="field"><span>链接名称 <small>选填</small></span><input v-model="label" maxlength="80" :placeholder="calendar ? '例如：我的手机' : '例如：家人'"></label>
         <label class="field">
           <span>有效期</span>
           <select v-model="duration">
@@ -109,15 +113,16 @@ onMounted(load)
           </select>
         </label>
       </div>
-      <button class="button-primary settings-action" type="submit" :disabled="busy">生成订阅链接</button>
+      <button class="button-primary settings-action" type="submit" :disabled="busy">{{ calendar ? '生成订阅链接' : '生成家人查看链接' }}</button>
     </form>
 
     <div v-if="newLink" class="fields calendar-new-link">
-      <p>完整链接仅在本次生成后显示。请复制到日历订阅设置。</p>
-      <label class="field"><span>订阅链接</span><input ref="linkInput" :value="newLink" readonly></label>
+      <p>{{ calendar ? '完整链接仅在本次生成后显示。请复制到日历订阅设置。' : '完整链接仅在本次生成后显示。请复制给要分享的家人。' }}</p>
+      <label class="field"><span>{{ calendar ? '订阅链接' : '家人查看链接' }}</span><input ref="linkInput" :value="newLink" readonly></label>
       <div class="settings-controls">
         <button class="button-secondary" type="button" @click="copyLink">复制链接</button>
-        <a class="button-text calendar-link" :href="newLink" download="preg-companion.ics" referrerpolicy="no-referrer">下载 ICS</a>
+        <a v-if="calendar" class="button-text calendar-link" :href="newLink" download="preg-companion.ics" referrerpolicy="no-referrer">下载 ICS</a>
+        <a v-else class="button-text calendar-link" :href="newLink" target="_blank" rel="noopener noreferrer">预览家人页</a>
       </div>
     </div>
     <p v-if="notice" class="preview-line" role="status">{{ notice }}</p>
@@ -127,7 +132,7 @@ onMounted(load)
       <li v-for="item in subscriptions" :key="item.id">
         <div class="section-heading">
           <div>
-            <strong>{{ item.label || '日历订阅' }}</strong>
+            <strong>{{ item.label || heading }}</strong>
             <p class="settings-help">
               {{ stateLabel[item.state] }}
               <template v-if="item.expires_at"> · {{ new Date(item.expires_at).toLocaleDateString('zh-CN') }} 到期</template>
@@ -137,7 +142,7 @@ onMounted(load)
             :disabled="busy" @click="revoking = item.id">吊销</button>
         </div>
         <div v-if="revoking === item.id" class="fields calendar-confirm">
-          <p>吊销后，这个链接将停止刷新。日历里已下载的事件可能仍保留。</p>
+          <p>{{ calendar ? '吊销后，这个链接将停止刷新。日历里已下载的事件可能仍保留。' : '吊销后，此链接将无法继续读取分享内容。' }}</p>
           <div class="settings-controls">
             <button class="button-secondary" type="button" :disabled="busy" @click="revoking = null">取消</button>
             <button class="button-danger" type="button" :disabled="busy" @click="revoke">确认吊销</button>
@@ -145,7 +150,7 @@ onMounted(load)
         </div>
       </li>
     </ul>
-    <p v-else-if="!busy && !error" class="settings-help">还没有订阅链接。</p>
+    <p v-else-if="!busy && !error" class="settings-help">{{ calendar ? '还没有订阅链接。' : '还没有家人查看链接。' }}</p>
     <button v-if="error && !subscriptions.length" class="button-text settings-action" type="button" :disabled="busy" @click="load">重新加载</button>
   </section>
 </template>

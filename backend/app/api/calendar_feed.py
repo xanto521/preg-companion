@@ -2,14 +2,11 @@ from hashlib import sha256
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from sqlalchemy import or_, select
 
-from app.api.share_tokens import CALENDAR_SCOPE
 from app.calendar.events import collect_events
 from app.calendar.ics import render_calendar
-from app.db.models import ShareToken, utc_now
 from app.db.session import Database
-from app.security.recorder import token_digest
+from app.security.sharing import CALENDAR_SCOPE, valid_share
 
 router = APIRouter()
 
@@ -20,17 +17,9 @@ def not_found() -> HTTPException:
 
 @router.api_route("/cal/{token}.ics", methods=["GET", "HEAD"], include_in_schema=False)
 def calendar_feed(token: str, request: Request, db: Database) -> Response:
-    if len(token) != 43:
-        raise not_found()
-    # Read authorization and all event sources from the same SQLite snapshot.
+    # Read authorization and event sources from the same SQLite snapshot.
     db.connection().exec_driver_sql("BEGIN")
-    subscription = db.scalar(select(ShareToken.id).where(
-        ShareToken.token_hash == token_digest(token),
-        ShareToken.scope == CALENDAR_SCOPE,
-        ShareToken.revoked_at.is_(None),
-        or_(ShareToken.expires_at.is_(None), ShareToken.expires_at > utc_now()),
-    ))
-    if subscription is None:
+    if not valid_share(db, token, CALENDAR_SCOPE):
         raise not_found()
 
     settings = request.app.state.settings

@@ -15,9 +15,13 @@ from app.api.notes_questions import router as notes_questions_router
 from app.api.pregnancy import router as pregnancy_router
 from app.api.share_tokens import router as subscriptions_router
 from app.api.supplements import router as supplements_router
+from app.api.trends import router as trends_router
+from app.api.viewer import PRIVATE_HEADERS, router as viewer_router
 from app.config import Settings
 from app.db.connection import create_sqlite_engine
+from app.db.session import Database
 from app.security.recorder import LoginLimiter
+from app.security.sharing import VIEW_SCOPE, valid_share
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -33,12 +37,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             engine.dispose()
 
-    app = FastAPI(title="孕期陪伴", version="0.4.0", lifespan=lifespan)
+    app = FastAPI(title="孕期陪伴", version="0.5.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.login_limiter = LoginLimiter()
     for router in (
         health_router, auth_router, pregnancy_router, checkups_router, milestones_router,
-        subscriptions_router, daily_router, supplements_router, notes_questions_router,
+        subscriptions_router, daily_router, supplements_router, notes_questions_router, trends_router, viewer_router,
     ):
         app.include_router(router, prefix="/api")
     app.include_router(calendar_router)
@@ -55,6 +59,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         response = await call_next(request)
         if is_api:
             response.headers["Cache-Control"] = "no-store"
+        if request.url.path.startswith("/api/view/"):
+            response.headers.update(PRIVATE_HEADERS)
         return response
 
     @app.exception_handler(RequestValidationError)
@@ -76,15 +82,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, "Frontend build not found")
         return FileResponse(page, headers={"Cache-Control": "no-store"})
 
-    @app.get("/view/{token}", include_in_schema=False)
-    def viewer(token: str) -> FileResponse:
-        # The shell contains no records. The summary API will validate tokens.
+    @app.api_route("/view/{token}", methods=["GET", "HEAD"], include_in_schema=False)
+    def viewer(token: str, db: Database) -> FileResponse:
         page = dist / "viewer.html"
         if not page.is_file():
             raise HTTPException(404, "Frontend build not found")
         return FileResponse(
             page,
-            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+            status_code=200 if valid_share(db, token, VIEW_SCOPE) else 404,
+            headers=PRIVATE_HEADERS,
         )
 
     return app

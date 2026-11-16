@@ -1,7 +1,7 @@
 <script setup>
 import { nextTick, onMounted, ref } from 'vue'
 import { api } from '../api/recorder'
-import CalendarSubscriptions from './CalendarSubscriptions.vue'
+import ShareLinks from './ShareLinks.vue'
 
 const emit = defineEmits(['close', 'failed'])
 const rules = ref([])
@@ -137,6 +137,6 @@ onMounted(load)
       <p v-else-if="!busy && !form && !error" class="settings-help">还没有规则。可以按医院给的孕周范围添加。</p>
     </section>
 
-    <CalendarSubscriptions @failed="emit('failed', $event)" />
+    <ShareLinks @failed="emit('failed', $event)" />
   </div>
 </template>

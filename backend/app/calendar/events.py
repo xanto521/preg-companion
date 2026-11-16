@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Checkup, MilestoneRule, SupplementPlan
 from app.domain.milestones import milestone_window
 from app.domain.pregnancy import current_pregnancy
+from app.domain.visibility import visible_checkup
 
 DAY = timedelta(days=1)
 HOUR = timedelta(hours=1)
@@ -82,8 +83,7 @@ def collect_events(db: Session, zone: ZoneInfo) -> list[CalendarEvent]:
         ))
     checkups = db.scalars(select(Checkup).where(
         Checkup.pregnancy_id == pregnancy.id,
-        Checkup.deleted_at.is_(None),
-        Checkup.viewer_visible.is_(True),
+        visible_checkup(),
         Checkup.next_visit_date.is_not(None),
     ).order_by(Checkup.id))
     for checkup in checkups:

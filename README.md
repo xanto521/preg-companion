@@ -17,11 +17,11 @@ make dev
 | 地址 | 用途 |
 | --- | --- |
 | [http://127.0.0.1:5173](http://127.0.0.1:5173) | 录入端 |
-| [http://127.0.0.1:5173/viewer.html](http://127.0.0.1:5173/viewer.html) | 只读端页面预览 |
+| 本机录入端生成的 `/view/<token>` 地址 | 家人只读端 |
 | [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) | 当前已实现的 API |
 | [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health) | 服务健康检查 |
 
-`make dev` 会先迁移数据库。本地数据库默认位于 `data/app.db`，可通过 `PREG_DATA_DIR` 配置。SQLite 连接启用 WAL 和外键检查。运行 `make build` 后，重启 FastAPI 即可由同一个服务访问录入端 `/` 和只读入口 `/view/demo`。
+`make dev` 会先迁移数据库。本地数据库默认位于 `data/app.db`，可通过 `PREG_DATA_DIR` 配置。SQLite 连接启用 WAL 和外键检查。运行 `make build` 后，重启 FastAPI 即可由同一个服务访问录入端 `/` 和家人只读链接。
 
 首次启动后，在后端所在机器上生成一次性设置链接。这里以 Vite 的录入端地址为例。
 
@@ -45,7 +45,7 @@ docker compose up --build -d --wait
 docker compose exec -T app python -m app.security.setup http://127.0.0.1:8000
 ```
 
-局域网 HTTP 开发实例用于测试数据。录入真实数据时需为录入端配置 HTTPS。可选的 Caddy `https` profile 用于公开查看和日历路径，将 `PREG_PUBLIC_DOMAIN` 设置为指向主机的域名并开放 80/443 后，运行 `docker compose --profile https up --build -d --wait`。家人查看页目前为占位页。
+局域网 HTTP 开发实例用于测试数据。录入真实数据时需为录入端配置 HTTPS。可选的 Caddy `https` profile 用于公开查看和日历路径，将 `PREG_PUBLIC_DOMAIN` 设置为指向主机的域名并开放 80/443 后，运行 `docker compose --profile https up --build -d --wait`。
 
 ## M1 录入
 
@@ -74,6 +74,12 @@ docker compose exec -T app python -m unittest discover -s tests
 - 每日记录可按日期填写三餐和加餐、照片、症状标签、情绪和当天备注。照片支持 JPG、PNG 和 WebP，每张最多 20 MB。同一标签页切换日期或刷新后可恢复文字草稿，待上传照片需要重新选择。
 - 补剂计划支持开始和结束日期、用量、每天的提醒时间和暂停。按日期可打卡或撤销。勾选「同步提醒到订阅日历」后，现有订阅刷新时会收到每天重复的「补剂」事件。打卡只更新应用内的完成状态。
 - 备注支持日期、正文和标签。问题支持待问、已问、已解答，可关联产检并记录医生回复。
+
+## M4 家人分享与指标趋势
+
+- 登录后打开「家人分享」，生成有有效期的链接。家人打开链接即可读取共享内容。完整链接只在生成时显示，可在同一页吊销。日历订阅继续使用独立链接。
+- 产检、每日记录和备注的「允许家人查看」决定相应内容是否出现在家人页。家人页显示孕周、可见预约、产检日期、写给家人的说明和可见指标。原始医嘱、内部小结、报告及照片留在录入端。
+- 记录者从「今天」的产检区打开「指标趋势」，可按孕周或日期切换。孕周使用录入时保存的值，缺少孕周的数据可以按日期查看。在「填写参考范围」里录入报告给出的界限，图表以浅色带和「需关注」标注。
 
 ## 代码入口
 

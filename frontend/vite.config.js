@@ -3,7 +3,18 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    {
+      name: 'viewer-entry',
+      configureServer(server) {
+        server.middlewares.use((request, _response, next) => {
+          if (/^\/view\/[^/?]+(?:\?.*)?$/.test(request.url || '')) request.url = '/viewer.html'
+          next()
+        })
+      },
+    },
+  ],
   server: {
     proxy: {
       '/api': 'http://127.0.0.1:8000',

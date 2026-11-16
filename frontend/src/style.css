@@ -1,0 +1,122 @@
+@import './styles/tokens.css';
+
+:root {
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: "HarmonyOS Sans SC", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  line-height: 1.6;
+}
+
+body {
+  margin: 0;
+}
+
+.shell {
+  box-sizing: border-box;
+  max-inline-size: 36rem;
+  margin-inline: auto;
+  padding: clamp(3rem, 12vh, 7rem) 1rem 3rem;
+}
+
+@media (min-width: 640px) {
+  .shell {
+    padding-inline: 1.5rem;
+  }
+}
+
+.shell h1 {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.shell p {
+  margin-block: 0.75rem 0;
+  color: var(--color-text-secondary);
+}
+
+.connection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block-start: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.connection-status[data-state='ready'] {
+  background: var(--color-success-soft);
+  color: var(--color-on-success-soft);
+}
+
+.connection-status[data-state='unavailable'] {
+  background: var(--color-notice-soft);
+  color: var(--color-on-notice-soft);
+}
+
+.status-dot {
+  flex: none;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+[data-state='ready'] > .status-dot {
+  background: var(--color-success);
+}
+
+[data-state='unavailable'] > .status-dot {
+  background: var(--color-notice);
+}
+
+.button-primary {
+  min-inline-size: 2.75rem;
+  min-block-size: 3rem;
+  padding-inline: 1rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button-primary:active {
+  background: var(--color-primary-pressed);
+}
+
+.button-primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.viewer-shell {
+  max-inline-size: 35rem;
+}
+
+.viewer-shell .viewer-message {
+  margin-block-start: 1.5rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-soft);
+  color: var(--color-on-accent-soft);
+}

@@ -1,0 +1,85 @@
+:root {
+  color-scheme: light;
+
+  --color-primary: #6D5FA3;
+  --color-primary-pressed: #60538F;
+  --color-primary-soft: #EFEBF8;
+  --color-on-primary: #FFFFFF;
+  --color-accent: #F4A58A;
+  --color-accent-soft: #FDEEE7;
+  --color-on-accent: #5A2F20;
+  --color-on-accent-soft: #7A3F28;
+
+  --color-bg: #FAF7F5;
+  --color-surface: #FFFFFF;
+  --color-border: #E8E2DC;
+  --color-border-strong: #91867E;
+  --color-text: #2B2830;
+  --color-text-secondary: #6B6573;
+
+  --color-success: #3F8F68;
+  --color-success-soft: #E6F3EC;
+  --color-on-success-soft: #2F6F4E;
+  --color-notice: #A86E12;
+  --color-notice-soft: #FFF2D9;
+  --color-on-notice-soft: #8A5A0B;
+  --color-danger: #B83A3A;
+  --color-danger-soft: #FBE7E5;
+  --color-on-danger-soft: #9E2F2F;
+  --color-danger-fill: #B83A3A;
+  --color-on-danger-fill: #FFFFFF;
+
+  --color-chart-1: var(--color-primary);
+  --color-chart-2: #CB5D3D;
+  --color-chart-3: var(--color-text-secondary);
+  --color-chart-grid: #EFEAE4;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+}
+
+/* Browsers without light-dark() use the complete light palette above. */
+@supports (color: light-dark(white, black)) {
+  :root {
+    color-scheme: light dark;
+
+    --color-primary: light-dark(#6D5FA3, #A99BE0);
+    --color-primary-pressed: light-dark(#60538F, #9588C5);
+    --color-primary-soft: light-dark(#EFEBF8, #3A3358);
+    --color-on-primary: light-dark(#FFFFFF, #1F1D24);
+    --color-accent: light-dark(#F4A58A, #F0A58B);
+    --color-accent-soft: light-dark(#FDEEE7, #3B2A26);
+    --color-on-accent: light-dark(#5A2F20, #2A1A14);
+    --color-on-accent-soft: light-dark(#7A3F28, #F6CBB9);
+
+    --color-bg: light-dark(#FAF7F5, #1F1D24);
+    --color-surface: light-dark(#FFFFFF, #28252F);
+    --color-border: light-dark(#E8E2DC, #3D3947);
+    --color-border-strong: light-dark(#91867E, #797487);
+    --color-text: light-dark(#2B2830, #ECE8F2);
+    --color-text-secondary: light-dark(#6B6573, #A8A2B3);
+
+    --color-success: light-dark(#3F8F68, #6FC49A);
+    --color-success-soft: light-dark(#E6F3EC, #1E3329);
+    --color-on-success-soft: light-dark(#2F6F4E, #9BDDBC);
+    --color-notice: light-dark(#A86E12, #E5B25D);
+    --color-notice-soft: light-dark(#FFF2D9, #3A2F18);
+    --color-on-notice-soft: light-dark(#8A5A0B, #F0CB85);
+    --color-danger: light-dark(#B83A3A, #E57B7B);
+    --color-danger-soft: light-dark(#FBE7E5, #3B2022);
+    --color-on-danger-soft: light-dark(#9E2F2F, #F0A3A3);
+
+    --color-chart-2: light-dark(#CB5D3D, #F0A58B);
+    --color-chart-grid: light-dark(#EFEAE4, #3D3947);
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+  }
+
+  :root[data-theme='dark'] {
+    color-scheme: dark;
+  }
+}

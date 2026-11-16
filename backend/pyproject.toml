@@ -1,0 +1,15 @@
+[project]
+name = "preg-companion"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.15,<2",
+    "fastapi>=0.115,<1",
+    "pydantic-settings>=2.8,<3",
+    "sqlalchemy>=2.0,<2.1",
+    "tzdata>=2025.1",
+    "uvicorn>=0.34,<1",
+]
+
+[tool.uv]
+package = false

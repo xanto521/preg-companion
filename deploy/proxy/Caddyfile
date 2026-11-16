@@ -1,0 +1,20 @@
+{
+	log {
+		exclude http.log.access http.log.error
+	}
+}
+
+{$PREG_PUBLIC_DOMAIN} {
+	@public {
+		method GET HEAD
+		path /view/* /api/view/* /cal/*.ics /assets/*
+	}
+
+	handle @public {
+		reverse_proxy app:8000
+	}
+
+	handle {
+		respond 404
+	}
+}

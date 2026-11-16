@@ -2,8 +2,12 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api/recorder'
 import CheckupForm from '../components/CheckupForm.vue'
+import DailyJournal from '../components/DailyJournal.vue'
 import MilestoneSettings from '../components/MilestoneSettings.vue'
+import NotesQuestions from '../components/NotesQuestions.vue'
 import PregnancyForm from '../components/PregnancyForm.vue'
+import RecordingShortcuts from '../components/RecordingShortcuts.vue'
+import SupplementJournal from '../components/SupplementJournal.vue'
 import { displayTime, gestationLabel, sources } from '../components/pregnancy'
 
 const session = ref(null)
@@ -121,7 +125,7 @@ async function logout() {
     notice.value = ''
     try {
       for (const key of Object.keys(sessionStorage)) {
-        if (key.startsWith('preg.checkup.')) sessionStorage.removeItem(key)
+        if (key.startsWith('preg.checkup.') || key.startsWith('preg.daily.')) sessionStorage.removeItem(key)
       }
     } catch {}
   } catch (problem) {
@@ -223,6 +227,12 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
       <PregnancyForm v-else-if="view === 'pregnancy'" :snapshot="snapshot"
         @saved="pregnancySaved" @close="changeView('home')" @failed="fail" />
       <MilestoneSettings v-else-if="view === 'milestones'" @close="changeView('home')" @failed="fail" />
+      <DailyJournal v-else-if="view === 'daily' || view === 'symptoms'" :today="snapshot.today"
+        :focus-symptoms="view === 'symptoms'" @close="changeView('home')" @failed="fail" />
+      <SupplementJournal v-else-if="view === 'supplements'" :today="snapshot.today"
+        @close="changeView('home')" @failed="fail" />
+      <NotesQuestions v-else-if="view === 'notes' || view === 'questions'" :key="view" :section="view"
+        :today="snapshot.today" :checkups="records" @close="changeView('home')" @switch="changeView" @failed="fail" />
       <CheckupForm v-else-if="view === 'checkup'" :record="selected" :snapshot="snapshot"
         :options="options" :previous="records[0]" @saved="checkupSaved" @close="closeEditor" @failed="fail" />
 
@@ -253,6 +263,8 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
             <p v-if="nextVisit.hospital">{{ nextVisit.hospital }}</p>
           </section>
         </div>
+
+        <RecordingShortcuts :today="snapshot.today" @navigate="changeView" @failed="fail" />
 
         <section class="checkup-section">
           <div class="section-heading">

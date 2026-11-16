@@ -11,13 +11,14 @@ from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, PositiveInt, mod
 from sqlalchemy import delete, select
 from starlette.datastructures import UploadFile
 
+from app.api.attachment_requests import attachment_response, attachment_root, check_upload
 from app.api.auth import require_recorder
 from app.db.connection import start_write
 from app.db.models import Attachment, Checkup, MetricDefinition, MetricValue, Pregnancy, utc_now
 from app.db.session import Database
 from app.domain.gestation import gestational_days
 from app.domain.pregnancy import current_pregnancy
-from app.storage.attachments import MAX_UPLOAD_BYTES, InvalidAttachment, stage_attachment
+from app.storage.attachments import InvalidAttachment, publish_blob, safe_filename, stage_attachment
 
 router = APIRouter(tags=["checkups"], dependencies=[Depends(require_recorder)])
 AttachmentKind = Literal["report", "ultrasound", "other"]
@@ -252,17 +253,11 @@ def store_attachment(
         if same is not None and (root / same.storage_path).is_file():
             return AttachmentDetails.model_validate(same)
 
-        stored = db.scalar(select(Attachment).where(Attachment.sha256 == digest).order_by(Attachment.id).limit(1))
-        storage_path = stored.storage_path if stored else f"{utc_now():%Y/%m}/{digest}{extension}"
-        target = root / storage_path
-        if not target.is_file():
-            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            temp_path.replace(target)
+        storage_path = publish_blob(db, root, temp_path, digest, extension, same)
         if same is None:
-            filename = (upload.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
-            filename = "".join(char for char in filename if char.isprintable()).strip()[:180]
+            filename = safe_filename(upload.filename, extension)
             same = Attachment(
-                owner_type="checkup", owner_id=checkup.id, kind=kind, filename=filename or f"附件{extension}",
+                owner_type="checkup", owner_id=checkup.id, kind=kind, filename=filename,
                 mime=mime, size_bytes=size, sha256=digest, storage_path=storage_path,
             )
             db.add(same)
@@ -272,22 +267,13 @@ def store_attachment(
 
 @router.post("/checkups/{checkup_id}/attachments", status_code=201)
 async def upload_attachment(checkup_id: int, request: Request, db: Database) -> AttachmentDetails:
-    try:
-        content_length = int(request.headers["content-length"])
-    except (KeyError, ValueError) as exc:
-        raise HTTPException(411, "上传需包含文件大小。") from exc
-    if content_length < 0 or content_length > MAX_UPLOAD_BYTES + 64 * 1024:
-        raise HTTPException(413, "每个附件最多 20 MB。")
-
-    if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "multipart/form-data":
-        raise HTTPException(415, "请通过附件表单上传文件。")
+    check_upload(request)
     async with request.form(max_files=1, max_fields=1, max_part_size=1024) as form:
         upload = form.get("file")
         kind = form.get("kind", "report")
         if not isinstance(upload, UploadFile) or not isinstance(kind, str) or kind not in ATTACHMENT_KINDS:
             raise HTTPException(422, "请选择附件和正确的附件类型。")
-        root = request.app.state.settings.database_path.parent / "attachments"
-        return await run_in_threadpool(store_attachment, checkup_id, kind, upload, root, db)
+        return await run_in_threadpool(store_attachment, checkup_id, kind, upload, attachment_root(request), db)
 
 
 @router.get("/checkups/{checkup_id}/attachments/{attachment_id}")
@@ -297,13 +283,4 @@ def download_attachment(checkup_id: int, attachment_id: int, request: Request, d
     if attachment is None:
         raise HTTPException(404, "附件不存在。")
 
-    root = (request.app.state.settings.database_path.parent / "attachments").resolve()
-    path = (root / attachment.storage_path).resolve()
-    if not path.is_relative_to(root) or not path.is_file():
-        raise HTTPException(404, "附件文件不存在。")
-    return FileResponse(
-        path,
-        filename=attachment.filename or "附件",
-        media_type=attachment.mime or "application/octet-stream",
-        headers={"X-Content-Type-Options": "nosniff"},
-    )
+    return attachment_response(request, attachment)

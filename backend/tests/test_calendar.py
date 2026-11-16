@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.calendar.events import collect_events
 from app.calendar.ics import render_calendar
 from app.db.connection import create_sqlite_engine
-from app.db.models import Base, Checkup, MilestoneRule, Pregnancy
+from app.db.models import Base, Checkup, MilestoneRule, Pregnancy, SupplementCheck, SupplementPlan
 
 
 class CalendarTest(TestCase):
@@ -111,3 +111,33 @@ class CalendarTest(TestCase):
         rule.enabled = False
         self.db.commit()
         self.assertNotIn(b"milestone-", self.feed())
+
+    def test_supplement_reminder_is_daily_private_and_independent_of_checkin(self):
+        self.db.delete(self.pregnancy)
+        plan = SupplementPlan(
+            name="private-plan-name", dosage="private-dosage",
+            start_date=date(2026, 11, 16), end_date=date(2026, 11, 19),
+            remind_time=time(9, 15), rrule="FREQ=DAILY", viewer_visible=True,
+            updated_at=self.stamp,
+        )
+        private_plan = SupplementPlan(
+            name="private-untimed", start_date=plan.start_date, remind_time=time(10),
+        )
+        self.db.add_all([plan, private_plan])
+        self.db.commit()
+
+        content = self.feed()
+        self.assertNotIn(b"private-", content)
+        event, = Calendar.from_ical(content).walk("VEVENT")
+        self.assertEqual(event["SUMMARY"], "补剂")
+        self.assertEqual(event.decoded("DTSTART"), datetime(2026, 11, 16, 9, 15, tzinfo=self.zone))
+        self.assertEqual(event["RRULE"]["FREQ"], ["DAILY"])
+        self.assertEqual(event["RRULE"]["UNTIL"], [datetime(2026, 11, 19, 1, 15, tzinfo=UTC)])
+        self.assertEqual(event.walk("VALARM")[0].decoded("TRIGGER"), timedelta(0))
+        self.db.add(SupplementCheck(plan_id=plan.id, check_date=plan.start_date, taken=True))
+        self.db.commit()
+        self.assertEqual(content, self.feed())
+
+        plan.active = False
+        self.db.commit()
+        self.assertFalse(Calendar.from_ical(self.feed()).walk("VEVENT"))

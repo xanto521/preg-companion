@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Checkup, MilestoneRule
+from app.db.models import Checkup, MilestoneRule, SupplementPlan
 from app.domain.milestones import milestone_window
 from app.domain.pregnancy import current_pregnancy
 
@@ -22,6 +22,7 @@ class CalendarEvent:
     sequence: int
     modified: datetime
     alarms: tuple[timedelta, ...]
+    recurrence: dict[str, str | datetime] | None = None
 
 
 def checkup_event(checkup: Checkup, zone: ZoneInfo) -> CalendarEvent | None:
@@ -41,12 +42,39 @@ def checkup_event(checkup: Checkup, zone: ZoneInfo) -> CalendarEvent | None:
     return CalendarEvent(f"checkup-{checkup.id}", "产检", start, end, checkup.version, checkup.updated_at, alarms)
 
 
+def supplement_events(db: Session, zone: ZoneInfo) -> list[CalendarEvent]:
+    plans = db.scalars(select(SupplementPlan).where(
+        SupplementPlan.active.is_(True),
+        SupplementPlan.deleted_at.is_(None),
+        SupplementPlan.viewer_visible.is_(True),
+        SupplementPlan.remind_time.is_not(None),
+        or_(SupplementPlan.rrule.is_(None), SupplementPlan.rrule == "FREQ=DAILY"),
+    ).order_by(SupplementPlan.id))
+    events = []
+    for plan in plans:
+        if plan.remind_time is None:
+            continue
+        try:
+            start = datetime.combine(plan.start_date, plan.remind_time, zone)
+            end = (start.astimezone(UTC) + timedelta(minutes=1)).astimezone(zone)
+            recurrence: dict[str, str | datetime] = {"freq": "DAILY"}
+            if plan.end_date is not None:
+                recurrence["until"] = datetime.combine(plan.end_date, plan.remind_time, zone).astimezone(UTC)
+        except OverflowError:
+            continue
+        events.append(CalendarEvent(
+            f"supplement-{plan.id}", "补剂", start, end, plan.version, plan.updated_at,
+            (timedelta(0),), recurrence,
+        ))
+    return events
+
+
 def collect_events(db: Session, zone: ZoneInfo) -> list[CalendarEvent]:
+    events = supplement_events(db, zone)
     pregnancy = current_pregnancy(db)
     if pregnancy is None:
-        return []
+        return events
 
-    events = []
     if pregnancy.edd_date < date.max:
         events.append(CalendarEvent(
             f"edd-{pregnancy.id}", "预产期", pregnancy.edd_date, pregnancy.edd_date + DAY,

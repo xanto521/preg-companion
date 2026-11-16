@@ -45,7 +45,7 @@ docker compose up --build -d --wait
 docker compose exec -T app python -m app.security.setup http://127.0.0.1:8000
 ```
 
-局域网 HTTP 开发实例用于测试数据。录入真实数据时需为录入端配置 HTTPS。可选的 Caddy `https` profile 用于公开查看和日历路径，将 `PREG_PUBLIC_DOMAIN` 设置为指向主机的域名并开放 80/443 后，运行 `docker compose --profile https up --build -d --wait`。分享页目前为占位页，分享和日历输出由后续阶段接入。
+局域网 HTTP 开发实例用于测试数据。录入真实数据时需为录入端配置 HTTPS。可选的 Caddy `https` profile 用于公开查看和日历路径，将 `PREG_PUBLIC_DOMAIN` 设置为指向主机的域名并开放 80/443 后，运行 `docker compose --profile https up --build -d --wait`。家人查看页目前为占位页。
 
 ## M1 录入
 
@@ -53,12 +53,27 @@ docker compose exec -T app python -m app.security.setup http://127.0.0.1:8000
 
 报告与影像支持 JPG、PNG、WebP 和 PDF，单文件最多 20 MB。附件写入数据卷的 `attachments/` 目录，经登录后下载。表单草稿可在同一浏览器标签页刷新后恢复。附件需重新选择。
 
+## M2 里程碑与日历
+
+登录后打开「里程碑与日历」。选择参考项目或输入自定义名称，按医院通知填写开始与结束孕周。两端日期都计入窗口。可以编辑或停用规则。调整预产期后，窗口日期自动更新。
+
+在同一页生成 ICS 链接。完整地址仅在生成时显示，可复制到手机日历的订阅入口，也可下载 ICS 检查事件。下载导入是单次导入，后续更新使用订阅链接。有效期由页面选择，默认使用 `PREG_SHARE_TOKEN_TTL_DAYS`。可在同一页吊销链接。已下载到客户端的副本由客户端管理。
+
+日历包含预产期、启用的参考窗口和允许家人查看的下次产检。事件标题保持通用。定时产检提前一天和两小时提醒，全天产检提前一天提醒，预产期提前一周提醒，参考窗口在开始日提醒。补剂提醒随 M3 接入。手机是否接受局域网 HTTP 订阅、何时刷新、是否触发提醒，以实机结果为准。配置 `PREG_PUBLIC_DOMAIN` 后，新链接使用该域名的 HTTPS 地址。
+
+在服务器上运行日历回归测试。
+
+```sh
+docker compose exec -T app python -m unittest discover -s tests
+```
+
 ## 代码入口
 
 | 路径 | 用途 |
 | --- | --- |
 | `backend/app/api` | 登录、预产期、产检和健康检查 HTTP 路由 |
 | `backend/app/domain` | 独立业务逻辑，已包含以预产期计算孕天数的函数 |
+| `backend/app/calendar` | 事件生成和 ICS 序列化 |
 | `backend/app/db` | SQLAlchemy 模型、SQLite 连接和 Alembic 迁移 |
 | `frontend/src/pages` | 录入端页面 |
 | `frontend/src/viewer` | 独立构建的家人查看入口 |

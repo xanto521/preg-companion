@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api/recorder'
 import CheckupForm from '../components/CheckupForm.vue'
+import MilestoneSettings from '../components/MilestoneSettings.vue'
 import PregnancyForm from '../components/PregnancyForm.vue'
 import { displayTime, gestationLabel, sources } from '../components/pregnancy'
 
@@ -180,8 +181,10 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
   <main ref="page" class="recorder-shell" tabindex="-1">
     <header class="app-header">
       <span class="app-name">孕期陪伴</span>
-      <button v-if="session?.authenticated && view === 'home'" class="button-text" type="button"
-        :disabled="busy" @click="logout">退出登录</button>
+      <div v-if="session?.authenticated && view === 'home'" class="settings-controls">
+        <button class="button-text" type="button" :disabled="busy" @click="changeView('milestones')">里程碑与日历</button>
+        <button class="button-text" type="button" :disabled="busy" @click="logout">退出登录</button>
+      </div>
     </header>
 
     <section v-if="!session" class="auth-panel panel">
@@ -219,6 +222,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
 
       <PregnancyForm v-else-if="view === 'pregnancy'" :snapshot="snapshot"
         @saved="pregnancySaved" @close="changeView('home')" @failed="fail" />
+      <MilestoneSettings v-else-if="view === 'milestones'" @close="changeView('home')" @failed="fail" />
       <CheckupForm v-else-if="view === 'checkup'" :record="selected" :snapshot="snapshot"
         :options="options" :previous="records[0]" @saved="checkupSaved" @close="closeEditor" @failed="fail" />
 

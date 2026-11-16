@@ -235,3 +235,44 @@
   .editor-actions { grid-template-columns: minmax(0, 1fr) auto; }
   .editor-actions > button { grid-column: 2; }
 }
+
+.settings-help { color: var(--color-text-secondary); font-size: 0.875rem; }
+.settings-action { justify-self: start; }
+.settings-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+
+.settings-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-list li {
+  display: grid;
+  gap: 0.25rem;
+  border-block-start: 1px solid var(--color-border);
+  padding-block-start: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.milestone-editor {
+  padding-block: 0.75rem;
+  border-block: 1px solid var(--color-border);
+}
+
+.gestation-range {
+  min-inline-size: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.gestation-range legend { padding: 0; }
+.milestone-presets .button-text { background: var(--color-primary-soft); }
+.calendar-new-link { padding: 0.75rem; border-radius: var(--radius-md); background: var(--color-primary-soft); }
+.calendar-link { display: inline-flex; align-items: center; box-sizing: border-box; }
+.calendar-confirm { margin-block-start: 0.5rem; }

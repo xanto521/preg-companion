@@ -6,9 +6,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import router as auth_router
+from app.api.calendar_feed import router as calendar_router
 from app.api.checkups import router as checkups_router
 from app.api.health import router as health_router
+from app.api.milestones import router as milestones_router
 from app.api.pregnancy import router as pregnancy_router
+from app.api.share_tokens import router as subscriptions_router
 from app.config import Settings
 from app.db.connection import create_sqlite_engine
 from app.security.recorder import LoginLimiter
@@ -27,11 +30,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             engine.dispose()
 
-    app = FastAPI(title="孕期陪伴", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="孕期陪伴", version="0.3.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.login_limiter = LoginLimiter()
-    for router in (health_router, auth_router, pregnancy_router, checkups_router):
+    for router in (health_router, auth_router, pregnancy_router, checkups_router, milestones_router, subscriptions_router):
         app.include_router(router, prefix="/api")
+    app.include_router(calendar_router)
 
     @app.middleware("http")
     async def protect_api(request: Request, call_next):

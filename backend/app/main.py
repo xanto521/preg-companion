@@ -21,7 +21,7 @@ from app.config import Settings
 from app.db.connection import create_sqlite_engine
 from app.db.session import Database
 from app.security.recorder import LoginLimiter
-from app.security.sharing import VIEW_SCOPE, valid_share
+from app.security.sharing import VIEW_SCOPE, ShareRevocations, valid_share
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -37,9 +37,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             engine.dispose()
 
-    app = FastAPI(title="孕期陪伴", version="0.5.0", lifespan=lifespan)
+    app = FastAPI(title="孕期陪伴", version="0.5.1", lifespan=lifespan)
     app.state.settings = settings
     app.state.login_limiter = LoginLimiter()
+    app.state.share_revocations = ShareRevocations()
     for router in (
         health_router, auth_router, pregnancy_router, checkups_router, milestones_router,
         subscriptions_router, daily_router, supplements_router, notes_questions_router, trends_router, viewer_router,

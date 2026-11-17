@@ -84,7 +84,7 @@ async function revoke() {
     const subscription = subscriptions.value.find(item => item.id === id)
     if (subscription) subscription.state = 'revoked'
     revoking.value = null
-    notice.value = '已吊销链接。'
+    notice.value = '已吊销链接，立即生效。'
   } catch (problem) {
     fail(problem)
   } finally {
@@ -135,14 +135,15 @@ onMounted(load)
             <strong>{{ item.label || heading }}</strong>
             <p class="settings-help">
               {{ stateLabel[item.state] }}
-              <template v-if="item.expires_at"> · {{ new Date(item.expires_at).toLocaleDateString('zh-CN') }} 到期</template>
+              <template v-if="item.state === 'active' && item.expires_at"> · {{ new Date(item.expires_at).toLocaleDateString('zh-CN') }} 到期</template>
+              <template v-if="item.state === 'revoked' && item.revoked_at"> · {{ new Date(item.revoked_at).toLocaleString('zh-CN') }}</template>
             </p>
           </div>
           <button v-if="item.state === 'active' && revoking !== item.id" class="button-text" type="button"
             :disabled="busy" @click="revoking = item.id">吊销</button>
         </div>
         <div v-if="revoking === item.id" class="fields calendar-confirm">
-          <p>{{ calendar ? '吊销后，这个链接将停止刷新。日历里已下载的事件可能仍保留。' : '吊销后，此链接将无法继续读取分享内容。' }}</p>
+          <p>{{ calendar ? '吊销会立即停止此链接提供日程。日历里已下载的事件由客户端管理。' : '吊销会立即阻止此链接读取内容，已连接的家人页也会关闭共享内容。' }}</p>
           <div class="settings-controls">
             <button class="button-secondary" type="button" :disabled="busy" @click="revoking = null">取消</button>
             <button class="button-danger" type="button" :disabled="busy" @click="revoke">确认吊销</button>

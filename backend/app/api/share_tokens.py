@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
@@ -10,7 +11,7 @@ from app.db.connection import start_write
 from app.db.models import ShareToken, utc_now
 from app.db.session import Database
 from app.security.recorder import new_token, token_digest
-from app.security.sharing import CALENDAR_SCOPE, Scope
+from app.security.sharing import CALENDAR_SCOPE, VIEW_SCOPE, Scope
 
 router = APIRouter(prefix="/share-tokens", tags=["share links"], dependencies=[Depends(require_recorder)])
 
@@ -28,6 +29,7 @@ class Subscription(BaseModel):
     label: str | None
     created_at: datetime
     expires_at: datetime | None
+    revoked_at: datetime | None
     state: Literal["active", "expired", "revoked"]
 
 
@@ -47,6 +49,7 @@ def describe(token: ShareToken) -> Subscription:
         id=token.id, label=token.label, state=state,
         created_at=token.created_at.replace(tzinfo=UTC),
         expires_at=token.expires_at.replace(tzinfo=UTC) if token.expires_at else None,
+        revoked_at=token.revoked_at.replace(tzinfo=UTC) if token.revoked_at else None,
     )
 
 
@@ -74,12 +77,18 @@ def issue_subscription(payload: SubscriptionInput, request: Request, db: Databas
     )
 
 
-@router.delete("/{token_id}", status_code=204)
-def revoke_subscription(token_id: int, db: Database, scope: Scope = CALENDAR_SCOPE) -> None:
+def persist_revocation(token_id: int, db: Database, scope: Scope) -> None:
     start_write(db)
     token = db.get(ShareToken, token_id)
     if token is None or token.scope != scope:
         raise HTTPException(404, "这条链接不存在。")
     if token.revoked_at is None:
         token.revoked_at = utc_now()
-        db.commit()
+    db.commit()
+
+
+@router.delete("/{token_id}", status_code=204)
+async def revoke_subscription(token_id: int, request: Request, db: Database, scope: Scope = CALENDAR_SCOPE) -> None:
+    await run_in_threadpool(persist_revocation, token_id, db, scope)
+    if scope == VIEW_SCOPE:
+        request.app.state.share_revocations.notify(token_id)

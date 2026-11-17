@@ -23,4 +23,4 @@ COPY --from=frontend /build/dist /srv/frontend/dist
 
 USER app
 EXPOSE 8000
-CMD ["sh", "-c", "umask 077 && alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --no-access-log"]
+CMD ["sh", "-c", "umask 077 && alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --no-access-log --timeout-graceful-shutdown 5"]

@@ -17,7 +17,7 @@ migrate:
 	umask 077 && uv --directory backend run --locked alembic upgrade head
 
 dev: migrate
-	uv --directory backend run --locked uvicorn app.main:app --reload --no-access-log
+	uv --directory backend run --locked uvicorn app.main:app --reload --no-access-log --timeout-graceful-shutdown 5
 
 web:
 	npm --prefix frontend run dev

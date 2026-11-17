@@ -11,6 +11,8 @@ const unavailable = ref(false)
 const titles = { checkup: '产检', daily: '每日记录', note: '备注' }
 const meals = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐' }
 let generation = 0
+let access = null
+let connected = false
 const countdown = computed(() => {
   const days = summary.value?.pregnancy?.days_until_due
   if (days === 0) return '今天是预产期'
@@ -35,6 +37,17 @@ function readSeries(code) {
   return read(`/metrics/${encodeURIComponent(code)}/series`)
 }
 
+function invalidate() {
+  generation++
+  connected = false
+  access?.close()
+  access = null
+  summary.value = null
+  busy.value = false
+  unavailable.value = true
+  error.value = '请向家人索取新的查看链接。'
+}
+
 async function load() {
   const request = ++generation
   busy.value = true
@@ -46,41 +59,78 @@ async function load() {
     if (request === generation) summary.value = data
   } catch (problem) {
     if (request === generation) {
-      unavailable.value = problem.status === 404
-      error.value = unavailable.value ? '请向家人索取新的查看链接。' : '暂时无法加载，请检查网络后重试。'
+      if (problem.status === 404) invalidate()
+      else error.value = '暂时无法加载，请检查网络后重试。'
     }
   } finally {
     if (request === generation) busy.value = false
   }
 }
 
-async function recheck(problem) {
-  if (problem.status === 404 && !busy.value) {
-    // Refresh permissions on a revoked link or on a metric that is no longer shared.
-    try {
-      const latest = await read('/summary')
-      if (summary.value) summary.value = latest
-    } catch {
-      await load()
+function monitorAccess() {
+  if (!token) {
+    invalidate()
+    return
+  }
+  access?.close()
+  generation++
+  connected = false
+  summary.value = null
+  busy.value = true
+  unavailable.value = false
+  error.value = ''
+  const source = new EventSource(`/api/view/${token}/access`)
+  access = source
+  source.addEventListener('ready', () => {
+    if (source !== access) return
+    connected = true
+    load()
+  })
+  source.addEventListener('unavailable', () => {
+    if (source === access) invalidate()
+  })
+  source.onerror = async () => {
+    if (source !== access) return
+    const request = ++generation
+    connected = false
+    summary.value = null
+    busy.value = false
+    error.value = '暂时无法确认链接权限，请检查网络后重试。'
+    if (source.readyState === EventSource.CLOSED) {
+      try {
+        await read('/summary')
+      } catch (problem) {
+        if (request === generation && problem.status === 404) invalidate()
+      }
     }
   }
 }
 
+function recheck(problem) {
+  if (connected && problem.status === 404 && !busy.value) load()
+}
+
+function retry() {
+  if (connected) load()
+  else monitorAccess()
+}
+
 function onPageShow(event) {
-  if (event.persisted) load()
+  if (event.persisted && !unavailable.value) retry()
 }
 
 function onVisibility() {
-  if (!document.hidden && !busy.value && token) load()
+  if (!document.hidden && connected && !busy.value) load()
 }
 
 onMounted(() => {
-  load()
+  monitorAccess()
   window.addEventListener('pageshow', onPageShow)
   document.addEventListener('visibilitychange', onVisibility)
 })
 onUnmounted(() => {
   generation++
+  access?.close()
   window.removeEventListener('pageshow', onPageShow)
   document.removeEventListener('visibilitychange', onVisibility)
 })
@@ -93,7 +143,7 @@ onUnmounted(() => {
     <section v-else-if="error" class="family-panel family-message">
       <h2>{{ unavailable ? '分享链接不可用' : '暂时无法连接' }}</h2>
       <p>{{ error }}</p>
-      <button v-if="!unavailable" class="trend-retry" type="button" @click="load">重试</button>
+      <button v-if="!unavailable" class="trend-retry" type="button" @click="retry">重试</button>
     </section>
     <template v-else-if="summary">
       <section v-if="summary.pregnancy" class="family-panel family-gestation">

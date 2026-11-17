@@ -1,18 +1,22 @@
+from asyncio import wait_for
 from datetime import UTC, date, datetime, time
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.db.models import Checkup, DailyLog, MealEntry, Note, SymptomEntry
+from app.db.models import Checkup, DailyLog, MealEntry, Note, SymptomEntry, utc_now
 from app.db.session import Database
 from app.domain.gestation import gestational_days
 from app.domain.pregnancy import current_pregnancy
 from app.domain.trends import TrendMetric, TrendSeries, trend_metrics, trend_series
 from app.domain.visibility import visible_checkup, visible_daily_log, visible_note
-from app.security.sharing import VIEW_SCOPE, valid_share
+from app.security.sharing import VIEW_SCOPE, active_share, valid_share
 
 router = APIRouter(prefix="/view", tags=["family view"], include_in_schema=False)
 PRIVATE_HEADERS = {
@@ -20,6 +24,8 @@ PRIVATE_HEADERS = {
     "X-Robots-Tag": "noindex, nofollow, noarchive",
 }
 RECENT_LIMIT = 20
+ACCESS_HEARTBEAT = 15
+ACCESS_ENDED = "event: unavailable\ndata: {}\n\n"
 
 
 class SharedPregnancy(BaseModel):
@@ -57,6 +63,42 @@ def authorize(db: Database, token: str) -> None:
     db.connection().exec_driver_sql("BEGIN")
     if not valid_share(db, token, VIEW_SCOPE):
         raise HTTPException(404, "分享链接已失效或不存在。", headers=PRIVATE_HEADERS)
+
+
+@router.get("/{token}/access")
+async def watch_access(token: str, request: Request) -> StreamingResponse:
+    def read_access() -> tuple[int, datetime | None] | None:
+        # Each check releases its own database session before the stream waits.
+        with Session(request.app.state.engine) as db:
+            share = active_share(db, token, VIEW_SCOPE)
+            return (share.id, share.expires_at) if share else None
+
+    access = await run_in_threadpool(read_access)
+    if access is None:
+        raise HTTPException(404, "分享链接已失效或不存在。", headers=PRIVATE_HEADERS)
+    share_id, expires_at = access
+
+    async def messages():
+        with request.app.state.share_revocations.listen(share_id) as revoked:
+            # Recheck after registering so a simultaneous revocation cannot be missed.
+            if await run_in_threadpool(read_access) is None or revoked.is_set():
+                yield ACCESS_ENDED
+                return
+            yield "event: ready\ndata: {}\n\n"
+            while True:
+                timeout = ACCESS_HEARTBEAT
+                if expires_at is not None:
+                    timeout = min(timeout, max(0, (expires_at - utc_now()).total_seconds()))
+                try:
+                    await wait_for(revoked.wait(), timeout=timeout)
+                except TimeoutError:
+                    if await run_in_threadpool(read_access) is not None and not revoked.is_set():
+                        yield ": keepalive\n\n"
+                        continue
+                yield ACCESS_ENDED
+                return
+
+    return StreamingResponse(messages(), media_type="text/event-stream", headers=PRIVATE_HEADERS)
 
 
 @router.get("/{token}/summary")

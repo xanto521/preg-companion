@@ -28,7 +28,7 @@ def calendar_feed(token: str, request: Request, db: Database) -> Response:
     db.rollback()
     content = render_calendar(events, settings.public_domain, zone)
     etag = '"' + sha256(content).hexdigest() + '"'
-    headers = {"ETag": etag, "Cache-Control": "private, no-cache", "Referrer-Policy": "no-referrer"}
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache, must-revalidate", "Referrer-Policy": "no-referrer"}
     offered = {tag.strip().removeprefix("W/") for tag in request.headers.get("If-None-Match", "").split(",")}
     if "*" in offered or etag in offered:
         return Response(status_code=304, headers=headers)

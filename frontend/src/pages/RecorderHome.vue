@@ -3,6 +3,7 @@ import TipHost from '../components/TipHost.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { showTip, showValidationTip } from '../tips'
 import { api } from '../api/recorder'
+import AppBrand from '../components/AppBrand.vue'
 import CheckupForm from '../components/CheckupForm.vue'
 import DailyJournal from '../components/DailyJournal.vue'
 import JournalCalendar from '../components/JournalCalendar.vue'
@@ -204,7 +205,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
 <template>
   <main ref="page" class="recorder-shell" tabindex="-1" @invalid.capture="showValidationTip">
     <header class="app-header">
-      <span class="app-name">孕期陪伴</span>
+      <AppBrand />
       <div v-if="session?.authenticated && view === 'home'" class="settings-controls">
         <button class="button-text" type="button" :disabled="busy" @click="changeView('milestones')">里程碑与日历</button>
         <button class="button-text" type="button" :disabled="busy" @click="changeView('share')">家人分享</button>

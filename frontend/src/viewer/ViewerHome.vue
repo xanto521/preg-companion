@@ -1,4 +1,5 @@
 <script setup>
+import AppBrand from '../components/AppBrand.vue'
 import TipHost from '../components/TipHost.vue'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { watchError } from '../tips'
@@ -141,7 +142,10 @@ onUnmounted(() => {
 
 <template>
   <main class="family-shell">
-    <header class="family-heading"><h1>{{ unavailable ? '分享链接不可用' : '家人查看' }}</h1></header>
+    <header class="family-heading">
+      <AppBrand />
+      <h1>{{ unavailable ? '分享链接不可用' : '家人查看' }}</h1>
+    </header>
     <p v-if="busy" class="family-panel" role="status">正在读取分享内容…</p>
     <button v-else-if="error && !unavailable" class="trend-retry" type="button" @click="retry">重试</button>
     <template v-else-if="summary">

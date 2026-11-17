@@ -24,11 +24,6 @@
   border-block-end: 1px solid var(--color-border);
 }
 
-.app-name {
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
 .recorder-shell h1,
 .recorder-shell h2,
 .recorder-shell p {

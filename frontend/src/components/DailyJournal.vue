@@ -1,5 +1,6 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
+import { showTip } from '../tips'
 import { api } from '../api/recorder'
 import DayPicker from './DayPicker.vue'
 
@@ -8,8 +9,6 @@ const emit = defineEmits(['close', 'failed'])
 const day = ref(props.today)
 const record = ref(null)
 const busy = ref(false)
-const error = ref('')
-const notice = ref('')
 const custom = ref('')
 const queued = ref({})
 const removePhotos = ref({})
@@ -19,14 +18,12 @@ const symptomChoices = ['恶心', '反酸', '乏力', '头晕', '胃口变化', 
 
 function fail(problem) {
   if (problem.status === 401) emit('failed', problem)
-  else error.value = problem.message
+  else showTip(problem.message, 'error')
 }
 
 async function load() {
   busy.value = true
   record.value = null
-  error.value = ''
-  notice.value = ''
   custom.value = ''
   queued.value = {}
   removePhotos.value = {}
@@ -36,7 +33,7 @@ async function load() {
       const draft = JSON.parse(sessionStorage.getItem('preg.daily.' + day.value))
       if (draft?.version === snapshot.version) {
         Object.assign(snapshot, draft.fields)
-        notice.value = '已恢复此标签页的草稿。'
+        showTip('已恢复此标签页的草稿。')
       }
     } catch {}
     record.value = snapshot
@@ -75,7 +72,7 @@ function toggleSymptom(tag) {
   const position = list.indexOf(tag)
   if (position >= 0) list.splice(position, 1)
   else if (list.length < 20) list.push(tag)
-  else error.value = '一天最多添加 20 个症状标签。'
+  else showTip('一天最多添加 20 个症状标签。', 'error')
 }
 
 function addSymptom() {
@@ -89,7 +86,7 @@ function choosePhoto(kind, event) {
   event.target.value = ''
   if (!file) return
   if (file.size > 20 * 1024 * 1024) {
-    error.value = '每张照片最多 20 MB。'
+    showTip('每张照片最多 20 MB。', 'error')
     return
   }
   queued.value[kind] = file
@@ -99,8 +96,6 @@ function choosePhoto(kind, event) {
 async function save() {
   const path = `/daily/${day.value}`
   busy.value = true
-  error.value = ''
-  notice.value = ''
   let savedText = false
   try {
     record.value = await api(path, { method: 'PUT', data: fields(record.value) })
@@ -116,9 +111,9 @@ async function save() {
       record.value = await api(`${path}/meals/${kind}/photo?version=${record.value.version}`, { method: 'POST', data })
       delete queued.value[kind]
     }
-    notice.value = '已保存每日记录。'
+    showTip('已保存每日记录。', 'success')
   } catch (problem) {
-    if (savedText && problem.status !== 401) error.value = `文字已保存，照片尚未处理完。${problem.message}`
+    if (savedText && problem.status !== 401) showTip(`文字已保存，照片尚未处理完。${problem.message}`, 'error')
     else fail(problem)
   } finally {
     busy.value = false
@@ -133,8 +128,7 @@ async function save() {
   </div>
   <DayPicker v-model="day" :busy="busy" />
   <div v-if="!record" class="panel fields">
-    <p v-if="error" class="form-message" role="alert">{{ error }}</p>
-    <p v-else>正在读取记录…</p>
+    <p v-if="busy">正在读取记录…</p>
     <button v-if="!busy" class="button-secondary" type="button" @click="load">重试</button>
   </div>
 
@@ -187,8 +181,6 @@ async function save() {
       </section>
     </fieldset>
     <div class="editor-actions sticky-actions">
-      <p v-if="notice" class="preview-line" role="status">{{ notice }}</p>
-      <p v-if="error" class="form-message" role="alert">{{ error }}</p>
       <button class="button-primary" type="submit" :disabled="busy">{{ busy ? '正在保存…' : '保存当天记录' }}</button>
     </div>
   </form>

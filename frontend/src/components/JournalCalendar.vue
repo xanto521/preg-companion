@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue'
+import { watchError } from '../tips'
 import { api } from '../api/recorder'
 import { displayTime } from './pregnancy'
 
@@ -24,6 +25,7 @@ const dayTitle = computed(() => {
 const events = ref([])
 const busy = ref(false)
 const error = ref('')
+watchError(error)
 const dates = ref(null)
 let requestNumber = 0
 
@@ -155,7 +157,6 @@ watch(monthKey, load, { immediate: true })
 
     <section class="panel fields calendar-day" aria-labelledby="journal-calendar-day">
       <h2 id="journal-calendar-day">{{ dayTitle }}</h2>
-      <p v-if="error" class="form-message" role="alert">{{ error }}</p>
       <button v-if="error" type="button" class="button-secondary" @click="load">重试</button>
       <p v-else-if="busy" role="status">正在读取日历…</p>
       <ul v-else-if="selectedEntries.length" class="calendar-entries">

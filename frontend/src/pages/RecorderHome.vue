@@ -1,5 +1,7 @@
 <script setup>
+import TipHost from '../components/TipHost.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { showTip, showValidationTip } from '../tips'
 import { api } from '../api/recorder'
 import CheckupForm from '../components/CheckupForm.vue'
 import DailyJournal from '../components/DailyJournal.vue'
@@ -26,8 +28,6 @@ const calendarDay = ref('')
 const calendarFilter = ref('all')
 const calendarDestination = ref(null)
 const busy = ref(true)
-const error = ref('')
-const notice = ref('')
 const page = ref(null)
 const isSetup = computed(() => Boolean(setupToken.value && !session.value?.configured))
 const pregnancy = computed(() => snapshot.value?.pregnancy)
@@ -67,10 +67,10 @@ function fail(problem) {
     selected.value = null
     calendarDestination.value = null
     view.value = 'home'
-    error.value = '登录已过期，请重新登录。'
+    showTip('登录已过期，请重新登录。', 'error')
     return
   }
-  error.value = problem.message
+  showTip(problem.message, 'error')
 }
 
 function showCalendar() {
@@ -102,7 +102,6 @@ async function loadDashboard() {
 
 async function load() {
   busy.value = true
-  error.value = ''
   try {
     session.value = await api('/auth/session')
     if (session.value.authenticated) await loadDashboard()
@@ -114,9 +113,8 @@ async function load() {
 }
 
 async function authenticate() {
-  error.value = ''
   if (isSetup.value && password.value !== confirmPassword.value) {
-    error.value = '两次输入的口令不一致。'
+    showTip('两次输入的口令不一致。', 'error')
     return
   }
   busy.value = true
@@ -130,6 +128,7 @@ async function authenticate() {
     confirmPassword.value = ''
     await loadDashboard()
     await changeView('home')
+    showTip('已登录。', 'success')
   } catch (problem) {
     fail(problem)
   } finally {
@@ -140,19 +139,18 @@ async function authenticate() {
 async function logout() {
   if (view.value !== 'home') return
   busy.value = true
-  error.value = ''
   try {
     await api('/auth/logout', { method: 'POST' })
     session.value = { authenticated: false, configured: true }
     snapshot.value = null
     records.value = []
     selected.value = null
-    notice.value = ''
     try {
       for (const key of Object.keys(sessionStorage)) {
         if (key.startsWith('preg.checkup.') || key.startsWith('preg.daily.')) sessionStorage.removeItem(key)
       }
     } catch {}
+    showTip('已退出登录。', 'success')
   } catch (problem) {
     fail(problem)
   } finally {
@@ -162,8 +160,6 @@ async function logout() {
 
 async function openCheckup(id = null) {
   busy.value = true
-  notice.value = ''
-  error.value = ''
   try {
     selected.value = id ? await api(`/checkups/${id}`) : null
     await changeView('checkup')
@@ -175,7 +171,6 @@ async function openCheckup(id = null) {
 }
 
 async function closeEditor() {
-  error.value = ''
   await returnFromEntry()
   busy.value = true
   try {
@@ -189,12 +184,12 @@ async function closeEditor() {
 
 function pregnancySaved(updated) {
   snapshot.value = updated
-  notice.value = '已保存预产期'
+  showTip('已保存预产期', 'success')
   returnFromEntry()
 }
 
 function checkupSaved(message) {
-  notice.value = message
+  showTip(message, 'success')
   closeEditor()
 }
 
@@ -207,7 +202,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
 </script>
 
 <template>
-  <main ref="page" class="recorder-shell" tabindex="-1">
+  <main ref="page" class="recorder-shell" tabindex="-1" @invalid.capture="showValidationTip">
     <header class="app-header">
       <span class="app-name">孕期陪伴</span>
       <div v-if="session?.authenticated && view === 'home'" class="settings-controls">
@@ -219,7 +214,6 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
 
     <section v-if="!session" class="auth-panel panel">
       <h1>{{ busy ? '正在连接…' : '暂时无法连接' }}</h1>
-      <p v-if="error" class="form-message" role="alert">{{ error }}</p>
       <button v-if="!busy" class="button-secondary" type="button" @click="load">重试</button>
     </section>
 
@@ -235,18 +229,16 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
           <span>再输入一次口令</span>
           <input v-model="confirmPassword" type="password" name="confirm-password" autocomplete="new-password" minlength="12" maxlength="128" required>
         </label>
-        <p v-if="error" class="form-message" role="alert">{{ error }}</p>
         <button class="button-primary" type="submit" :disabled="busy">
           {{ busy ? '请稍候…' : isSetup ? '设置并登录' : '登录' }}
         </button>
       </form>
-      <p v-else>请打开管理员发给你的首次设置链接。</p>
+      <button v-else class="button-text" type="button" @click="showTip('请打开管理员发给你的首次设置链接。')">首次设置说明</button>
     </section>
 
     <template v-else>
-      <p v-if="error" class="form-message" role="alert">{{ error }}</p>
       <div v-if="!snapshot" class="panel fields">
-        <p>{{ busy ? '正在读取记录…' : '暂时无法读取记录。' }}</p>
+        <p v-if="busy">正在读取记录…</p>
         <button v-if="!busy" class="button-secondary" type="button" @click="load">重试</button>
       </div>
 
@@ -276,7 +268,6 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
         :options="options" :previous="records[0]" @saved="checkupSaved" @close="closeEditor" @failed="fail" />
 
       <template v-else>
-        <p v-if="notice" class="toast" role="status">{{ notice }}</p>
         <div class="page-heading">
           <h1>今天</h1>
           <div class="settings-controls">
@@ -296,7 +287,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
           </section>
           <section v-else class="panel fields">
             <h2>设置预产期</h2>
-            <p>填入预产期后，就能查看当前孕周并录入产检。</p>
+            <button class="button-text settings-action" type="button" @click="showTip('填入预产期后，就能查看当前孕周并录入产检。')">预产期说明</button>
             <button class="button-primary" type="button" @click="changeView('pregnancy')">设置预产期</button>
           </section>
           <section v-if="nextVisit" class="appointment-card panel">
@@ -329,4 +320,5 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
       </template>
     </template>
   </main>
+  <TipHost />
 </template>

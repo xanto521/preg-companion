@@ -1,5 +1,7 @@
 <script setup>
+import TipHost from '../components/TipHost.vue'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { watchError } from '../tips'
 import MetricTrends from '../components/MetricTrends.vue'
 import { displayTime, gestationLabel } from '../components/pregnancy'
 
@@ -7,6 +9,7 @@ const token = window.location.pathname.match(/^\/view\/([A-Za-z0-9_-]{43})$/)?.[
 const summary = ref(null)
 const busy = ref(false)
 const error = ref('')
+watchError(error)
 const unavailable = ref(false)
 const titles = { checkup: '产检', daily: '每日记录', note: '备注' }
 const meals = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐' }
@@ -138,13 +141,9 @@ onUnmounted(() => {
 
 <template>
   <main class="family-shell">
-    <header class="family-heading"><h1>家人查看</h1></header>
+    <header class="family-heading"><h1>{{ unavailable ? '分享链接不可用' : '家人查看' }}</h1></header>
     <p v-if="busy" class="family-panel" role="status">正在读取分享内容…</p>
-    <section v-else-if="error" class="family-panel family-message">
-      <h2>{{ unavailable ? '分享链接不可用' : '暂时无法连接' }}</h2>
-      <p>{{ error }}</p>
-      <button v-if="!unavailable" class="trend-retry" type="button" @click="retry">重试</button>
-    </section>
+    <button v-else-if="error && !unavailable" class="trend-retry" type="button" @click="retry">重试</button>
     <template v-else-if="summary">
       <section v-if="summary.pregnancy" class="family-panel family-gestation">
         <h2>当前孕周</h2>
@@ -191,4 +190,5 @@ onUnmounted(() => {
       <footer class="family-footer">由家人记录</footer>
     </template>
   </main>
+  <TipHost />
 </template>

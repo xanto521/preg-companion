@@ -1,5 +1,7 @@
 <script setup>
+import ConfirmTip from './ConfirmTip.vue'
 import { computed, ref, watch } from 'vue'
+import { showTip } from '../tips'
 import { api } from '../api/recorder'
 import { displayTime, gestationLabel, gestationalDays } from './pregnancy'
 
@@ -33,8 +35,6 @@ const rankedOptions = [...props.options].sort((a, b) => {
 const queued = ref([])
 const saving = ref(false)
 const deleting = ref(false)
-const error = ref('')
-const restored = ref(false)
 const kind = ref('report')
 const attachmentKinds = { report: '报告', ultrasound: '超声图', other: '其他' }
 
@@ -42,7 +42,7 @@ try {
   const draft = JSON.parse(sessionStorage.getItem(draftKey))
   if (draft?.version === (props.record?.version ?? null) && draft.field) {
     Object.assign(field.value, draft.field)
-    restored.value = true
+    showTip('已恢复此标签页的草稿。')
   }
 } catch {}
 
@@ -64,10 +64,9 @@ const days = computed(() => {
 })
 
 function chooseFiles(event) {
-  error.value = ''
   for (const file of Array.from(event.target.files)) {
     if (file.size > 20 * 1024 * 1024) {
-      error.value = '每个附件最多 20 MB。'
+      showTip('每个附件最多 20 MB。', 'error')
       continue
     }
     queued.value.push({ file, kind: kind.value })
@@ -81,7 +80,6 @@ function clearDraft() {
 
 async function save() {
   saving.value = true
-  error.value = ''
   try {
     const data = { ...field.value }
     for (const key of ['visit_time', 'next_visit_date', 'next_visit_time']) data[key] ||= null
@@ -104,14 +102,14 @@ async function save() {
         queued.value.shift()
       } catch (failure) {
         if (failure.status === 401) throw failure
-        error.value = `记录已保存，附件「${item.file.name}」未上传。${failure.message}`
+        showTip(`记录已保存，附件「${item.file.name}」未上传。${failure.message}`, 'error')
         return
       }
     }
     emit('saved', '已保存产检记录')
   } catch (failure) {
     if (failure.status === 401) emit('failed', failure)
-    else error.value = failure.message
+    else showTip(failure.message, 'error')
   } finally {
     saving.value = false
   }
@@ -119,7 +117,6 @@ async function save() {
 
 async function remove() {
   saving.value = true
-  error.value = ''
   try {
     await api(`/checkups/${saved.value.id}?version=${saved.value.version}`, { method: 'DELETE' })
     clearDraft()
@@ -127,7 +124,7 @@ async function remove() {
   } catch (failure) {
     deleting.value = false
     if (failure.status === 401) emit('failed', failure)
-    else error.value = failure.message
+    else showTip(failure.message, 'error')
   } finally {
     saving.value = false
   }
@@ -139,7 +136,6 @@ async function remove() {
     <h1>{{ record ? '编辑产检' : '录入产检' }}</h1>
     <button class="button-text" type="button" :disabled="saving" @click="emit('close')">返回</button>
   </div>
-  <p v-if="restored" class="preview-line" role="status">已恢复此标签页的草稿</p>
 
   <form class="editor checkup-editor" @submit.prevent="save">
     <fieldset :disabled="saving">
@@ -149,7 +145,7 @@ async function remove() {
           <label class="field"><span>就诊日期</span><input v-model="field.visit_date" type="date" required></label>
           <label class="field"><span>就诊时间 <small>选填</small></span><input v-model="field.visit_time" type="time"></label>
         </div>
-        <p v-if="days !== null" class="preview-line">{{ gestationLabel(days) }}</p>
+        <p v-if="days !== null" class="gestation-preview">{{ gestationLabel(days) }}</p>
         <div class="field-row">
           <label class="field"><span>医院</span><input v-model="field.hospital" maxlength="150"></label>
           <label class="field"><span>医生</span><input v-model="field.doctor" maxlength="100"></label>
@@ -221,18 +217,11 @@ async function remove() {
     </fieldset>
 
     <div class="editor-actions sticky-actions">
-      <p v-if="error" class="form-message" role="alert">{{ error }}</p>
       <button class="button-primary" type="submit" :disabled="saving">{{ saving ? '正在保存…' : '保存产检记录' }}</button>
     </div>
   </form>
 
-  <button v-if="saved && !deleting" class="button-text" type="button" :disabled="saving" @click="deleting = true">删除这条记录</button>
-  <section v-if="deleting" class="panel fields delete-confirm" aria-label="确认删除">
-    <h2>删除这条产检记录？</h2>
-    <p>这条产检记录和附件将从列表移除。</p>
-    <div class="button-row">
-      <button class="button-secondary" type="button" :disabled="saving" @click="deleting = false">取消</button>
-      <button class="button-danger" type="button" :disabled="saving" @click="remove">确认删除</button>
-    </div>
-  </section>
+  <button v-if="saved" class="button-text" type="button" :disabled="saving" @click="deleting = true">删除这条记录</button>
+  <ConfirmTip v-if="deleting" message="删除这条产检记录和附件？" action="确认删除"
+    :busy="saving" @cancel="deleting = false" @confirm="remove" />
 </template>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { showTip } from '../tips'
 import { api } from '../api/recorder'
 import { gestationLabel, gestationalDays, sources } from './pregnancy'
 
@@ -11,7 +12,6 @@ const source = ref(current?.edd_source || 'manual')
 const lmp = ref(current?.lmp_date || '')
 const note = ref('')
 const saving = ref(false)
-const error = ref('')
 const canCalculate = computed(() => source.value === 'lmp' && Boolean(lmp.value))
 const days = computed(() => gestationalDays(date.value, props.snapshot.today))
 
@@ -23,7 +23,6 @@ function calculate() {
 
 async function save() {
   saving.value = true
-  error.value = ''
   try {
     const snapshot = await api('/pregnancy', {
       method: 'PUT',
@@ -32,7 +31,7 @@ async function save() {
     emit('saved', snapshot)
   } catch (failure) {
     if (failure.status === 401) emit('failed', failure)
-    else error.value = failure.message
+    else showTip(failure.message, 'error')
   } finally {
     saving.value = false
   }
@@ -64,13 +63,12 @@ async function save() {
         </label>
       </div>
       <button v-if="canCalculate" class="button-secondary" type="button" @click="calculate">按末次月经加 280 天</button>
-      <p v-if="days !== null" class="preview-line">{{ gestationLabel(days) }}</p>
+      <p v-if="days !== null" class="gestation-preview">{{ gestationLabel(days) }}</p>
       <label class="field">
         <span>设置说明 <small>选填</small></span>
         <textarea v-model="note" rows="2" maxlength="1000" placeholder="例如：采用这次超声报告上的日期"></textarea>
       </label>
     </section>
-    <p v-if="error" class="form-message" role="alert">{{ error }}</p>
     <div class="editor-actions">
       <button class="button-primary" type="submit" :disabled="saving">{{ saving ? '正在保存…' : '保存预产期' }}</button>
     </div>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { watchError } from '../tips'
 import TrendChart from './TrendChart.vue'
 
 const props = defineProps({
@@ -12,6 +13,7 @@ const axis = ref('gestation')
 const series = ref(null)
 const busy = ref(false)
 const error = ref('')
+watchError(error)
 let generation = 0
 
 watch(() => props.metrics, metrics => {
@@ -67,7 +69,6 @@ function updateMetric(metric) {
         </div>
       </div>
       <slot v-if="series" :metric="series.metric" :updateMetric="updateMetric" />
-      <p v-if="error" class="trend-attention" role="alert">{{ error }}</p>
       <button v-if="error && !series" class="trend-retry" type="button" @click="load">重试</button>
       <p v-if="busy && !series" class="trend-hint" role="status">正在读取指标…</p>
       <TrendChart v-if="series" :series="series" :axis="axis" />

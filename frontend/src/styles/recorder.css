@@ -118,7 +118,6 @@
 
 .button-text,
 .button-secondary,
-.button-danger,
 .button-on-primary {
   min-block-size: 2.75rem;
   min-inline-size: 2.75rem;
@@ -138,7 +137,6 @@
   justify-self: start;
 }
 
-.button-danger { color: var(--color-on-danger-fill); background: var(--color-danger-fill); }
 .recorder-shell button:disabled { opacity: 0.65; cursor: wait; }
 
 .editor-actions { display: grid; gap: 0.5rem; }
@@ -149,18 +147,12 @@
   background: var(--color-bg);
 }
 
-.recorder-shell .form-message,
-.recorder-shell .toast,
-.recorder-shell .preview-line {
+.recorder-shell .gestation-preview {
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-sm);
-  overflow-wrap: anywhere;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
 }
-
-.form-message { background: var(--color-notice-soft); color: var(--color-on-notice-soft); }
-.recorder-shell .toast { margin-block-end: 1rem; background: var(--color-success-soft); color: var(--color-on-success-soft); }
-.preview-line { background: var(--color-primary-soft); color: var(--color-primary); }
-.recorder-shell > .preview-line { margin-block-end: 0.75rem; }
 
 .pregnancy-card {
   display: grid;
@@ -193,8 +185,7 @@
 }
 
 .checkup-section,
-.history,
-.delete-confirm { margin-block-start: 1.5rem; }
+.history { margin-block-start: 1.5rem; }
 .recorder-shell .empty-records { margin-block-start: 0.75rem; color: var(--color-text-secondary); }
 .record-list,
 .attachment-list,
@@ -227,7 +218,6 @@
 .attachment-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
 .history time { color: var(--color-text-secondary); font-size: 0.8125rem; }
 .attachment-list a { color: var(--color-primary); min-block-size: 2.75rem; align-content: center; }
-.delete-confirm .button-row { justify-content: flex-end; }
 
 @media (min-width: 640px) {
   .recorder-shell { padding-inline: 1.5rem; }
@@ -275,7 +265,6 @@
 .milestone-presets .button-text { background: var(--color-primary-soft); }
 .calendar-new-link { padding: 0.75rem; border-radius: var(--radius-md); background: var(--color-primary-soft); }
 .calendar-link { display: inline-flex; align-items: center; box-sizing: border-box; }
-.calendar-confirm { margin-block-start: 0.5rem; }
 
 .visually-hidden {
   position: absolute;

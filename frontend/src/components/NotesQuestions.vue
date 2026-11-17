@@ -1,5 +1,7 @@
 <script setup>
+import ConfirmTip from './ConfirmTip.vue'
 import { computed, onMounted, ref } from 'vue'
+import { showTip, watchError } from '../tips'
 import { api } from '../api/recorder'
 
 const props = defineProps({
@@ -17,7 +19,7 @@ const form = ref(null)
 const removing = ref(null)
 const busy = ref(false)
 const error = ref('')
-const notice = ref('')
+watchError(error)
 const states = { open: '待问', asked: '已问', answered: '已解答' }
 
 function fail(problem) {
@@ -40,7 +42,6 @@ onMounted(async () => {
 
 function edit(item = null) {
   error.value = ''
-  notice.value = ''
   removing.value = null
   const identity = { id: item?.id, version: item?.version }
   form.value = isNote.value ? {
@@ -56,13 +57,12 @@ function edit(item = null) {
 async function save() {
   busy.value = true
   error.value = ''
-  notice.value = ''
   try {
     const { id, ...data } = form.value
     if (isNote.value) data.tags = [...new Set(data.tags.split(/[、,，]/u).map(tag => tag.trim()).filter(Boolean))]
     await api(id ? `${path.value}/${id}` : path.value, { method: id ? 'PUT' : 'POST', data })
     form.value = null
-    notice.value = isNote.value ? '已保存备注。' : '已保存问题。'
+    showTip(isNote.value ? '已保存备注。' : '已保存问题。', 'success')
     items.value = await api(path.value)
   } catch (problem) { fail(problem) }
   finally { busy.value = false }
@@ -71,12 +71,11 @@ async function save() {
 async function remove(item) {
   busy.value = true
   error.value = ''
-  notice.value = ''
   try {
     await api(`${path.value}/${item.id}?version=${item.version}`, { method: 'DELETE' })
     items.value = items.value.filter(entry => entry.id !== item.id)
     removing.value = null
-    notice.value = isNote.value ? '已删除备注。' : '已删除问题。'
+    showTip(isNote.value ? '已删除备注。' : '已删除问题。', 'success')
   } catch (problem) { fail(problem) }
   finally { busy.value = false }
 }
@@ -126,8 +125,6 @@ async function remove(item) {
       </div>
     </form>
 
-    <p v-if="notice" class="preview-line" role="status">{{ notice }}</p>
-    <p v-if="error" class="form-message" role="alert">{{ error }}</p>
     <button v-if="error && !form && !items.length" class="button-text settings-action" type="button" :disabled="busy" @click="load">重新加载</button>
 
     <ul v-if="items.length" class="settings-list">
@@ -144,14 +141,11 @@ async function remove(item) {
           </div>
           <p v-if="item.answer" class="entry-content settings-help">{{ item.answer }}</p>
         </template>
-        <div v-if="removing === item.id" class="settings-controls">
-          <span>删除这条{{ isNote ? '备注' : '问题' }}？</span>
-          <button class="button-secondary" type="button" :disabled="busy" @click="removing = null">取消</button>
-          <button class="button-danger" type="button" :disabled="busy" @click="remove(item)">确认删除</button>
-        </div>
-        <div v-else class="settings-controls">
-          <button class="button-text" type="button" :disabled="busy || !!form" @click="edit(item)">编辑</button>
-          <button class="button-text" type="button" :disabled="busy || !!form" @click="removing = item.id">删除</button>
+        <ConfirmTip v-if="removing === item.id" :message="isNote ? '删除这条备注？' : '删除这个问题？'"
+          action="确认删除" :busy="busy" @cancel="removing = null" @confirm="remove(item)" />
+        <div class="settings-controls">
+          <button class="button-text" type="button" :disabled="busy || !!form || removing !== null" @click="edit(item)">编辑</button>
+          <button class="button-text" type="button" :disabled="busy || !!form || (removing !== null && removing !== item.id)" @click="removing = item.id">删除</button>
         </div>
       </li>
     </ul>

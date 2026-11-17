@@ -1,4 +1,5 @@
 @import './styles/tokens.css';
+@import './styles/tips.css';
 
 :root {
   color: var(--color-text);

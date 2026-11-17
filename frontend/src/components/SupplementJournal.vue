@@ -1,5 +1,6 @@
 <script setup>
 import { nextTick, ref, watch } from 'vue'
+import { showTip, watchError } from '../tips'
 import { api } from '../api/recorder'
 import DayPicker from './DayPicker.vue'
 import { displayTime } from './pregnancy'
@@ -12,7 +13,7 @@ const planList = ref(null)
 const form = ref(null)
 const busy = ref(false)
 const error = ref('')
-const notice = ref('')
+watchError(error)
 
 function fail(problem) {
   if (problem.status === 401) emit('failed', problem)
@@ -26,7 +27,6 @@ async function refresh() {
 async function load() {
   busy.value = true
   error.value = ''
-  notice.value = ''
   try {
     await refresh()
     if (day.value === props.today && props.initialPlanId) {
@@ -42,7 +42,6 @@ watch(day, load, { immediate: true })
 
 function edit(plan = null) {
   error.value = ''
-  notice.value = ''
   form.value = {
     id: plan?.id,
     name: plan?.name || '',
@@ -59,14 +58,13 @@ function edit(plan = null) {
 async function save() {
   busy.value = true
   error.value = ''
-  notice.value = ''
   try {
     const { id, ...data } = form.value
     data.end_date ||= null
     data.remind_time ||= null
     await api(id ? `/supplements/${id}` : '/supplements', { method: id ? 'PUT' : 'POST', data })
     form.value = null
-    notice.value = '已保存补剂计划。'
+    showTip('已保存补剂计划。', 'success')
     await refresh()
   } catch (problem) { fail(problem) }
   finally { busy.value = false }
@@ -75,12 +73,11 @@ async function save() {
 async function check(plan) {
   busy.value = true
   error.value = ''
-  notice.value = ''
   try {
     const taken = !plan.taken
     await api(`/supplements/${plan.id}/check`, { method: 'POST', data: { day: day.value, taken } })
     plan.taken = taken
-    notice.value = taken ? '已打卡。' : '已撤销打卡。'
+    showTip(taken ? '已打卡。' : '已撤销打卡。', 'success')
   } catch (problem) { fail(problem) }
   finally { busy.value = false }
 }
@@ -106,15 +103,13 @@ async function check(plan) {
       </div>
       <label class="field"><span>每天提醒时间</span><input v-model="form.remind_time" type="time" :required="form.viewer_visible"></label>
       <label class="check-field"><input v-model="form.viewer_visible" type="checkbox">同步提醒到订阅日历</label>
-      <p class="settings-help">日历标题显示「补剂」。已订阅的日历刷新后才会收到变更。</p>
+      <button class="button-text settings-action" type="button" @click="showTip('日历标题显示「补剂」。日历应用刷新订阅后会更新提醒。')">提醒说明</button>
       <label class="check-field"><input v-model="form.active" type="checkbox">启用此计划</label>
       <div class="settings-controls">
         <button class="button-secondary" type="button" :disabled="busy" @click="form = null">取消</button>
         <button class="button-primary" type="submit" :disabled="busy">保存计划</button>
       </div>
     </form>
-    <p v-if="notice" class="preview-line" role="status">{{ notice }}</p>
-    <p v-if="error" class="form-message" role="alert">{{ error }}</p>
     <button v-if="error && !form && !plans.length" class="button-text settings-action" :disabled="busy" type="button" @click="load">重新加载</button>
     <ul v-if="plans.length" ref="planList" class="settings-list">
       <li v-for="plan in plans" :key="plan.id" class="calendar-plan-target"

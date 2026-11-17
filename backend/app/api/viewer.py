@@ -37,6 +37,7 @@ class SharedPregnancy(BaseModel):
 class SharedAppointment(BaseModel):
     day: date
     time: time | None
+    hospital: str | None
 
 
 class SharedEntry(BaseModel):
@@ -127,7 +128,10 @@ def summary(token: str, request: Request, db: Database) -> SharedSummary:
             Checkup.next_visit_date, Checkup.next_visit_time, Checkup.id,
         ).limit(1))
         if appointment and appointment.next_visit_date is not None:
-            next_appointment = SharedAppointment(day=appointment.next_visit_date, time=appointment.next_visit_time)
+            next_appointment = SharedAppointment(
+                day=appointment.next_visit_date, time=appointment.next_visit_time,
+                hospital=appointment.appointment_hospital,
+            )
 
     daily_entries = db.scalars(select(DailyLog).where(visible_daily_log()).order_by(
         DailyLog.log_date.desc(),

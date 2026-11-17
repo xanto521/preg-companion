@@ -36,8 +36,10 @@ class CalendarTest(TestCase):
             Checkup(
                 pregnancy_id=self.pregnancy.id,
                 visit_date=date(2026, 11, 1),
+                hospital="private-original-hospital",
                 next_visit_date=date(2026, 12, 1),
                 next_visit_time=time(9, 30),
+                next_visit_hospital="预约医院, 东院区; 二楼",
                 viewer_visible=True,
                 advice="private-advice",
                 updated_at=self.stamp,
@@ -46,17 +48,20 @@ class CalendarTest(TestCase):
                 pregnancy_id=self.pregnancy.id,
                 visit_date=date(2026, 11, 2),
                 next_visit_date=date(2026, 12, 2),
+                next_visit_hospital="private-appointment",
                 viewer_visible=False,
             ),
             Checkup(
                 pregnancy_id=self.pregnancy.id,
                 visit_date=date(2026, 11, 3),
                 next_visit_date=date(2026, 12, 3),
+                next_visit_hospital="private-deleted-hospital",
                 deleted_at=self.stamp,
             ),
             Checkup(
                 pregnancy_id=self.pregnancy.id,
                 visit_date=date(2026, 11, 4),
+                hospital="原医院",
                 next_visit_date=date(2026, 12, 4),
                 viewer_visible=True,
             ),
@@ -64,12 +69,14 @@ class CalendarTest(TestCase):
         self.db.commit()
         content = self.feed()
         self.assertEqual(content, self.feed())
-        self.assertNotIn(b"private-advice", content)
+        self.assertNotIn(b"private-", content)
         parsed = Calendar.from_ical(content)
         items = {str(event["UID"]): event for event in parsed.walk("VEVENT")}
         self.assertEqual(set(items), {"edd-1@preg.test", "checkup-1@preg.test", "checkup-4@preg.test"})
         self.assertEqual(parsed.walk("VTIMEZONE")[0]["TZID"], "Asia/Shanghai")
         visit = items["checkup-1@preg.test"]
+        self.assertEqual(visit["SUMMARY"], "产检")
+        self.assertEqual(visit["LOCATION"], "预约医院, 东院区; 二楼")
         self.assertEqual(visit.decoded("DTSTART"), datetime(2026, 12, 1, 9, 30, tzinfo=self.zone))
         self.assertEqual(visit.decoded("DTEND") - visit.decoded("DTSTART"), timedelta(hours=1))
         self.assertEqual(
@@ -77,6 +84,8 @@ class CalendarTest(TestCase):
             [timedelta(days=-1), timedelta(hours=-2)],
         )
         all_day = items["checkup-4@preg.test"]
+        self.assertEqual(all_day["LOCATION"], "原医院")
+        self.assertNotIn("LOCATION", items["edd-1@preg.test"])
         self.assertEqual(all_day.decoded("DTEND"), date(2026, 12, 5))
         self.assertEqual([a.decoded("TRIGGER") for a in all_day.walk("VALARM")], [timedelta(days=-1)])
 

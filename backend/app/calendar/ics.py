@@ -34,6 +34,8 @@ def render_calendar(events: list[CalendarEvent], domain: str, zone: ZoneInfo) ->
         modified = event.modified.replace(tzinfo=UTC)
         component.add("uid", f"{event.key}@{domain}")
         component.add("summary", event.summary)
+        if event.location:
+            component.add("location", event.location)
         component.add("dtstart", event.start)
         component.add("dtend", event.end)
         component.add("dtstamp", modified)

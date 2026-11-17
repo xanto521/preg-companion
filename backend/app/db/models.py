@@ -81,6 +81,10 @@ class Checkup(SoftDeletedRecord, Base):
     viewer_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
 
+    @property
+    def appointment_hospital(self) -> str | None:
+        return self.next_visit_hospital or self.hospital
+
 
 class MetricDefinition(Base):
     __tablename__ = "metric_def"

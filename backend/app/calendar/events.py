@@ -24,6 +24,7 @@ class CalendarEvent:
     modified: datetime
     alarms: tuple[timedelta, ...]
     recurrence: dict[str, str | datetime] | None = None
+    location: str | None = None
 
 
 def checkup_event(checkup: Checkup, zone: ZoneInfo) -> CalendarEvent | None:
@@ -40,7 +41,10 @@ def checkup_event(checkup: Checkup, zone: ZoneInfo) -> CalendarEvent | None:
             alarms = (-DAY,)
     except OverflowError:
         return None
-    return CalendarEvent(f"checkup-{checkup.id}", "产检", start, end, checkup.version, checkup.updated_at, alarms)
+    return CalendarEvent(
+        f"checkup-{checkup.id}", "产检", start, end, checkup.version, checkup.updated_at, alarms,
+        location=checkup.appointment_hospital,
+    )
 
 
 def supplement_events(db: Session, zone: ZoneInfo) -> list[CalendarEvent]:

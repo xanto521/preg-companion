@@ -159,6 +159,7 @@ onUnmounted(() => {
       <section v-if="summary.next_appointment" class="family-panel family-next">
         <h2>下次产检</h2>
         <p><strong>{{ summary.next_appointment.day }} {{ displayTime(summary.next_appointment.time) }}</strong></p>
+        <p v-if="summary.next_appointment.hospital" class="family-entry-text">{{ summary.next_appointment.hospital }}</p>
       </section>
 
       <section v-if="summary.last_checkup" class="family-panel">

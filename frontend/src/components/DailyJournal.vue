@@ -2,10 +2,12 @@
 import { nextTick, ref, watch } from 'vue'
 import { showTip } from '../tips'
 import { api } from '../api/recorder'
+import ConfirmTip from './ConfirmTip.vue'
 import DayPicker from './DayPicker.vue'
+import { mealLabels as meals } from './meals'
 
-const props = defineProps({ today: { type: String, required: true }, focusSymptoms: Boolean })
-const emit = defineEmits(['close', 'failed'])
+const props = defineProps({ today: { type: String, required: true }, focusSymptoms: Boolean, recipeMeal: Object })
+const emit = defineEmits(['close', 'failed', 'meal-handled'])
 const day = ref(props.today)
 const record = ref(null)
 const busy = ref(false)
@@ -17,8 +19,8 @@ const photoDialog = ref(null)
 const photoMeal = ref(null)
 const cameraInput = ref(null)
 const pictureInput = ref(null)
+const mealToReplace = ref(null)
 const photoTypes = 'image/jpeg,image/png,image/webp'
-const meals = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐' }
 const symptomChoices = ['恶心', '反酸', '乏力', '头晕', '胃口变化', '睡眠不佳']
 
 function fail(problem) {
@@ -47,9 +49,26 @@ async function load() {
   } finally {
     busy.value = false
   }
+  if (!record.value || !props.recipeMeal || day.value !== props.today) return
+  const { kind, text } = props.recipeMeal
+  if (record.value.meals[kind]?.trim() && record.value.meals[kind] !== text) {
+    mealToReplace.value = props.recipeMeal
+  } else {
+    applyMeal(props.recipeMeal)
+  }
 }
 
-watch(day, load, { immediate: true })
+function finishMeal() {
+  mealToReplace.value = null
+  emit('meal-handled')
+}
+
+function applyMeal({ kind, text }) {
+  record.value.meals[kind] = text
+  finishMeal()
+  showTip(`已带入${meals[kind]}草稿。`, 'success')
+}
+
 if (props.focusSymptoms) {
   const stop = watch(record, async value => {
     if (!value) return
@@ -71,6 +90,8 @@ watch(record, value => {
     sessionStorage.setItem('preg.daily.' + value.log_date, JSON.stringify(draft))
   } catch {}
 }, { deep: true, flush: 'sync' })
+
+watch(day, load, { immediate: true })
 
 function toggleSymptom(tag) {
   const list = record.value.symptoms
@@ -142,14 +163,14 @@ async function save() {
     <h1>每日记录</h1>
     <button class="button-text" type="button" :disabled="busy" @click="emit('close')">返回</button>
   </div>
-  <DayPicker v-model="day" :busy="busy" />
+  <DayPicker v-model="day" :busy="busy || !!mealToReplace" />
   <div v-if="!record" class="panel fields">
     <p v-if="busy">正在读取记录…</p>
     <button v-if="!busy" class="button-secondary" type="button" @click="load">重试</button>
   </div>
 
   <form v-else class="editor checkup-editor" @submit.prevent="save">
-    <fieldset :disabled="busy">
+    <fieldset :disabled="busy || !!mealToReplace">
       <section class="panel fields">
         <h2>饮食</h2>
         <div class="field-row">
@@ -202,9 +223,12 @@ async function save() {
       </section>
     </fieldset>
     <div class="editor-actions sticky-actions">
-      <button class="button-primary" type="submit" :disabled="busy">{{ busy ? '正在保存…' : '保存当天记录' }}</button>
+      <button class="button-primary" type="submit" :disabled="busy || !!mealToReplace">{{ busy ? '正在保存…' : '保存当天记录' }}</button>
     </div>
   </form>
+
+  <ConfirmTip v-if="mealToReplace" :message="`${meals[mealToReplace.kind]}已有记录，要替换草稿内容吗？`" action="替换"
+    @cancel="finishMeal" @confirm="applyMeal(mealToReplace)" />
 
   <dialog ref="photoDialog" class="meal-photo-dialog" aria-labelledby="meal-photo-title">
     <h2 id="meal-photo-title">{{ meals[photoMeal] }}照片</h2>

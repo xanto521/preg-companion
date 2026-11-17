@@ -7,6 +7,7 @@ import AppBrand from '../components/AppBrand.vue'
 import CheckupForm from '../components/CheckupForm.vue'
 import DailyJournal from '../components/DailyJournal.vue'
 import JournalCalendar from '../components/JournalCalendar.vue'
+import MealPlans from '../components/MealPlans.vue'
 import MilestoneSettings from '../components/MilestoneSettings.vue'
 import NotesQuestions from '../components/NotesQuestions.vue'
 import PregnancyForm from '../components/PregnancyForm.vue'
@@ -28,6 +29,8 @@ const selected = ref(null)
 const calendarDay = ref('')
 const calendarFilter = ref('all')
 const calendarDestination = ref(null)
+const recipeDate = ref('')
+const recipeMeal = ref(null)
 const busy = ref(true)
 const page = ref(null)
 const isSetup = computed(() => Boolean(setupToken.value && !session.value?.configured))
@@ -148,7 +151,9 @@ async function logout() {
     selected.value = null
     try {
       for (const key of Object.keys(sessionStorage)) {
-        if (key.startsWith('preg.checkup.') || key.startsWith('preg.daily.')) sessionStorage.removeItem(key)
+        if (key.startsWith('preg.checkup.') || key.startsWith('preg.daily.') || key === 'preg.meal-plans') {
+          sessionStorage.removeItem(key)
+        }
       }
     } catch {}
     showTip('已退出登录。', 'success')
@@ -192,6 +197,18 @@ function pregnancySaved(updated) {
 function checkupSaved(message) {
   showTip(message, 'success')
   closeEditor()
+}
+
+function openRecipeDraft({ date, kind, text }) {
+  recipeDate.value = date
+  recipeMeal.value = { kind, text }
+  changeView('recipe-daily')
+}
+
+function closeDaily() {
+  if (view.value !== 'recipe-daily') return returnFromEntry()
+  recipeMeal.value = null
+  return changeView('recipes')
 }
 
 onMounted(() => {
@@ -245,6 +262,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
 
       <JournalCalendar v-else-if="view === 'calendar'" v-model:day="calendarDay" v-model:filter="calendarFilter"
         :today="snapshot.today" @open="openCalendarEntry" @close="changeView('home')" @failed="fail" />
+      <MealPlans v-else-if="view === 'recipes'" @close="changeView('home')" @use-meal="openRecipeDraft" @failed="fail" />
       <PregnancyForm v-else-if="view === 'pregnancy'" :snapshot="snapshot"
         @saved="pregnancySaved" @close="returnFromEntry" @failed="fail" />
       <MilestoneSettings v-else-if="view === 'milestones'" :initial-rule-id="calendarDestination?.record_id"
@@ -257,8 +275,10 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
         </div>
         <ShareLinks scope="view" @failed="fail" />
       </template>
-      <DailyJournal v-else-if="view === 'daily' || view === 'symptoms'" :today="calendarDestination?.day || snapshot.today"
-        :focus-symptoms="view === 'symptoms'" @close="returnFromEntry" @failed="fail" />
+      <DailyJournal v-else-if="view === 'daily' || view === 'symptoms' || view === 'recipe-daily'"
+        :today="view === 'recipe-daily' ? recipeDate : calendarDestination?.day || snapshot.today"
+        :focus-symptoms="view === 'symptoms'" :recipe-meal="view === 'recipe-daily' ? recipeMeal : null"
+        @meal-handled="recipeMeal = null" @close="closeDaily" @failed="fail" />
       <SupplementJournal v-else-if="view === 'supplements'" :today="calendarDestination?.day || snapshot.today"
         :initial-plan-id="calendarDestination?.record_id" @close="returnFromEntry" @failed="fail" />
       <NotesQuestions v-else-if="view === 'notes' || view === 'questions'" :key="view" :section="view"

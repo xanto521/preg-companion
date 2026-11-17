@@ -344,9 +344,5 @@
 
 .entry-state[data-done='true'] { background: var(--color-success-soft); color: var(--color-on-success-soft); }
 .quick-tasks { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.quick-records { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.quick-records { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.75rem, 1fr)); gap: 0.5rem; }
 .quick-records button { justify-self: stretch; }
-
-@media (min-width: 640px) {
-  .quick-records { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}

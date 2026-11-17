@@ -38,6 +38,7 @@ onMounted(async () => {
     </div>
     <div class="quick-records">
       <button class="button-secondary" type="button" @click="emit('navigate', 'daily')">饮食</button>
+      <button class="button-secondary" type="button" @click="emit('navigate', 'recipes')">今日食谱</button>
       <button class="button-secondary" type="button" @click="emit('navigate', 'symptoms')">症状</button>
       <button class="button-secondary" type="button" @click="emit('navigate', 'supplements')">补剂</button>
       <button class="button-secondary" type="button" @click="emit('navigate', 'notes')">备注</button>

@@ -1,13 +1,14 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { api } from '../api/recorder'
 import DayPicker from './DayPicker.vue'
 import { displayTime } from './pregnancy'
 
-const props = defineProps({ today: { type: String, required: true } })
+const props = defineProps({ today: { type: String, required: true }, initialPlanId: Number })
 const emit = defineEmits(['close', 'failed'])
 const day = ref(props.today)
 const plans = ref([])
+const planList = ref(null)
 const form = ref(null)
 const busy = ref(false)
 const error = ref('')
@@ -26,7 +27,13 @@ async function load() {
   busy.value = true
   error.value = ''
   notice.value = ''
-  try { await refresh() } catch (problem) {
+  try {
+    await refresh()
+    if (day.value === props.today && props.initialPlanId) {
+      await nextTick()
+      planList.value?.querySelector('[data-highlight="true"]')?.scrollIntoView({ block: 'nearest' })
+    }
+  } catch (problem) {
     plans.value = []
     fail(problem)
   } finally { busy.value = false }
@@ -109,8 +116,9 @@ async function check(plan) {
     <p v-if="notice" class="preview-line" role="status">{{ notice }}</p>
     <p v-if="error" class="form-message" role="alert">{{ error }}</p>
     <button v-if="error && !form && !plans.length" class="button-text settings-action" :disabled="busy" type="button" @click="load">重新加载</button>
-    <ul v-if="plans.length" class="settings-list">
-      <li v-for="plan in plans" :key="plan.id">
+    <ul v-if="plans.length" ref="planList" class="settings-list">
+      <li v-for="plan in plans" :key="plan.id" class="calendar-plan-target"
+        :data-highlight="day === props.today && plan.id === props.initialPlanId">
         <div class="section-heading">
           <div>
             <strong>{{ plan.name }}</strong>

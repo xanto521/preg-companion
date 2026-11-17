@@ -10,6 +10,7 @@ from app.api.calendar_feed import router as calendar_router
 from app.api.checkups import router as checkups_router
 from app.api.daily import router as daily_router
 from app.api.health import router as health_router
+from app.api.journal_calendar import router as journal_calendar_router
 from app.api.milestones import router as milestones_router
 from app.api.notes_questions import router as notes_questions_router
 from app.api.pregnancy import router as pregnancy_router
@@ -37,13 +38,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             engine.dispose()
 
-    app = FastAPI(title="孕期陪伴", version="0.5.1", lifespan=lifespan)
+    app = FastAPI(title="孕期陪伴", version="0.5.2", lifespan=lifespan)
     app.state.settings = settings
     app.state.login_limiter = LoginLimiter()
     app.state.share_revocations = ShareRevocations()
     for router in (
         health_router, auth_router, pregnancy_router, checkups_router, milestones_router,
         subscriptions_router, daily_router, supplements_router, notes_questions_router, trends_router, viewer_router,
+        journal_calendar_router,
     ):
         app.include_router(router, prefix="/api")
     app.include_router(calendar_router)

@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { api } from '../api/recorder'
 import CheckupForm from '../components/CheckupForm.vue'
 import DailyJournal from '../components/DailyJournal.vue'
+import JournalCalendar from '../components/JournalCalendar.vue'
 import MilestoneSettings from '../components/MilestoneSettings.vue'
 import NotesQuestions from '../components/NotesQuestions.vue'
 import PregnancyForm from '../components/PregnancyForm.vue'
@@ -21,6 +22,9 @@ const password = ref('')
 const confirmPassword = ref('')
 const view = ref('home')
 const selected = ref(null)
+const calendarDay = ref('')
+const calendarFilter = ref('all')
+const calendarDestination = ref(null)
 const busy = ref(true)
 const error = ref('')
 const notice = ref('')
@@ -61,11 +65,30 @@ function fail(problem) {
     snapshot.value = null
     records.value = []
     selected.value = null
+    calendarDestination.value = null
     view.value = 'home'
     error.value = '登录已过期，请重新登录。'
     return
   }
   error.value = problem.message
+}
+
+function showCalendar() {
+  if (!calendarDay.value) calendarDay.value = snapshot.value.today
+  calendarDestination.value = null
+  changeView('calendar')
+}
+
+function returnFromEntry() {
+  const destination = calendarDestination.value ? 'calendar' : 'home'
+  calendarDestination.value = null
+  return changeView(destination)
+}
+
+function openCalendarEntry(entry, day) {
+  calendarDestination.value = { ...entry, day }
+  if (entry.target === 'checkup') return openCheckup(entry.record_id)
+  return changeView(entry.target)
 }
 
 async function loadDashboard() {
@@ -153,7 +176,7 @@ async function openCheckup(id = null) {
 
 async function closeEditor() {
   error.value = ''
-  await changeView('home')
+  await returnFromEntry()
   busy.value = true
   try {
     await loadDashboard()
@@ -167,7 +190,7 @@ async function closeEditor() {
 function pregnancySaved(updated) {
   snapshot.value = updated
   notice.value = '已保存预产期'
-  changeView('home')
+  returnFromEntry()
 }
 
 function checkupSaved(message) {
@@ -227,9 +250,12 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
         <button v-if="!busy" class="button-secondary" type="button" @click="load">重试</button>
       </div>
 
+      <JournalCalendar v-else-if="view === 'calendar'" v-model:day="calendarDay" v-model:filter="calendarFilter"
+        :today="snapshot.today" @open="openCalendarEntry" @close="changeView('home')" @failed="fail" />
       <PregnancyForm v-else-if="view === 'pregnancy'" :snapshot="snapshot"
-        @saved="pregnancySaved" @close="changeView('home')" @failed="fail" />
-      <MilestoneSettings v-else-if="view === 'milestones'" @close="changeView('home')" @failed="fail" />
+        @saved="pregnancySaved" @close="returnFromEntry" @failed="fail" />
+      <MilestoneSettings v-else-if="view === 'milestones'" :initial-rule-id="calendarDestination?.record_id"
+        @close="returnFromEntry" @failed="fail" />
       <RecorderTrends v-else-if="view === 'trends'" @close="changeView('home')" @failed="fail" />
       <template v-else-if="view === 'share'">
         <div class="page-heading">
@@ -238,12 +264,14 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
         </div>
         <ShareLinks scope="view" @failed="fail" />
       </template>
-      <DailyJournal v-else-if="view === 'daily' || view === 'symptoms'" :today="snapshot.today"
-        :focus-symptoms="view === 'symptoms'" @close="changeView('home')" @failed="fail" />
-      <SupplementJournal v-else-if="view === 'supplements'" :today="snapshot.today"
-        @close="changeView('home')" @failed="fail" />
+      <DailyJournal v-else-if="view === 'daily' || view === 'symptoms'" :today="calendarDestination?.day || snapshot.today"
+        :focus-symptoms="view === 'symptoms'" @close="returnFromEntry" @failed="fail" />
+      <SupplementJournal v-else-if="view === 'supplements'" :today="calendarDestination?.day || snapshot.today"
+        :initial-plan-id="calendarDestination?.record_id" @close="returnFromEntry" @failed="fail" />
       <NotesQuestions v-else-if="view === 'notes' || view === 'questions'" :key="view" :section="view"
-        :today="snapshot.today" :checkups="records" @close="changeView('home')" @switch="changeView" @failed="fail" />
+        :today="calendarDestination?.day || snapshot.today" :checkups="records"
+        :initial-note-id="calendarDestination?.record_id" :new-note="calendarDestination?.target === 'notes' && !calendarDestination.record_id"
+        @close="returnFromEntry" @switch="changeView" @failed="fail" />
       <CheckupForm v-else-if="view === 'checkup'" :record="selected" :snapshot="snapshot"
         :options="options" :previous="records[0]" @saved="checkupSaved" @close="closeEditor" @failed="fail" />
 
@@ -251,7 +279,10 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
         <p v-if="notice" class="toast" role="status">{{ notice }}</p>
         <div class="page-heading">
           <h1>今天</h1>
-          <time :datetime="snapshot.today">{{ snapshot.today }}</time>
+          <div class="settings-controls">
+            <time :datetime="snapshot.today">{{ snapshot.today }}</time>
+            <button class="button-secondary" type="button" :disabled="busy" @click="showCalendar">日历</button>
+          </div>
         </div>
         <div class="home-cards">
           <section v-if="pregnancy" class="pregnancy-card">

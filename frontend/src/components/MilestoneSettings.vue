@@ -3,6 +3,7 @@ import { nextTick, onMounted, ref } from 'vue'
 import { api } from '../api/recorder'
 import ShareLinks from './ShareLinks.vue'
 
+const props = defineProps({ initialRuleId: Number })
 const emit = defineEmits(['close', 'failed'])
 const rules = ref([])
 const form = ref(null)
@@ -72,7 +73,11 @@ async function save() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  const target = rules.value.find(rule => rule.id === props.initialRuleId)
+  if (target) await edit(target)
+})
 </script>
 
 <template>

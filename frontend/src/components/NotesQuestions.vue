@@ -6,6 +6,8 @@ const props = defineProps({
   section: { type: String, required: true },
   today: { type: String, required: true },
   checkups: { type: Array, required: true },
+  initialNoteId: Number,
+  newNote: Boolean,
 })
 const emit = defineEmits(['close', 'switch', 'failed'])
 const isNote = computed(() => props.section === 'notes')
@@ -29,7 +31,12 @@ async function load() {
   try { items.value = await api(path.value) } catch (problem) { fail(problem) }
   finally { busy.value = false }
 }
-onMounted(load)
+onMounted(async () => {
+  await load()
+  if (!isNote.value) return
+  const target = items.value.find(item => item.id === props.initialNoteId)
+  if (target || props.newNote) edit(target)
+})
 
 function edit(item = null) {
   error.value = ''

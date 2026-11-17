@@ -74,7 +74,8 @@ def checkup_events(db: Session, first: date, last: date) -> list[JournalEvent]:
         if record.next_visit_date and first <= record.next_visit_date <= last:
             events.append(JournalEvent(
                 key=f"appointment-{record.id}", kind="checkup", start=record.next_visit_date, at=record.next_visit_time,
-                state="appointment", title="下次产检", detail=record.hospital, target="checkup", record_id=record.id,
+                state="appointment", title="下次产检", detail=record.next_visit_hospital or record.hospital,
+                target="checkup", record_id=record.id,
             ))
     return events
 

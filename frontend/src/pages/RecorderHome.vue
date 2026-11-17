@@ -294,7 +294,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
           <section v-if="nextVisit" class="appointment-card panel">
             <h2>下次产检</h2>
             <p><strong>{{ nextVisit.next_visit_date }} {{ displayTime(nextVisit.next_visit_time) }}</strong></p>
-            <p v-if="nextVisit.hospital">{{ nextVisit.hospital }}</p>
+            <p v-if="nextVisit.next_visit_hospital || nextVisit.hospital">{{ nextVisit.next_visit_hospital || nextVisit.hospital }}</p>
           </section>
         </div>
 

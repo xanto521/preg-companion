@@ -23,6 +23,7 @@ const field = ref({
   advice: props.record?.advice || '',
   next_visit_date: props.record?.next_visit_date || '',
   next_visit_time: displayTime(props.record?.next_visit_time),
+  next_visit_hospital: props.record?.next_visit_hospital ?? null,
   viewer_visible: props.record?.viewer_visible ?? true,
   viewer_note: props.record?.viewer_note || '',
   metrics: { ...props.record?.metrics },
@@ -48,6 +49,10 @@ try {
 
 const showExtra = ref(rankedOptions.some(option => !commonCodes.includes(option.code) && field.value.metrics[option.code] != null))
 const visibleOptions = computed(() => showExtra.value ? rankedOptions : rankedOptions.filter(option => commonCodes.includes(option.code)))
+const appointmentHospital = computed({
+  get: () => field.value.next_visit_hospital ?? field.value.hospital,
+  set: value => { field.value.next_visit_hospital = value },
+})
 
 watch(field, value => {
   if (saving.value) return
@@ -83,6 +88,7 @@ async function save() {
   try {
     const data = { ...field.value }
     for (const key of ['visit_time', 'next_visit_date', 'next_visit_time']) data[key] ||= null
+    data.next_visit_hospital = data.next_visit_hospital?.trim() || null
     data.metrics = Object.fromEntries(Object.entries(data.metrics).filter(([, value]) => value !== '' && value != null))
     const id = saved.value?.id
     if (id) data.version = saved.value.version
@@ -207,6 +213,10 @@ async function remove() {
           <label class="field"><span>预约日期</span><input v-model="field.next_visit_date" type="date" :min="field.visit_date"></label>
           <label class="field"><span>预约时间</span><input v-model="field.next_visit_time" type="time"></label>
         </div>
+        <label class="field">
+          <span>预约医院</span>
+          <input v-model="appointmentHospital" maxlength="150" placeholder="默认与本次就诊医院相同">
+        </label>
       </section>
 
       <section class="panel fields">

@@ -36,6 +36,7 @@ class CheckupInput(BaseModel):
     advice: str | None = Field(default=None, max_length=6000)
     next_visit_date: date | None = None
     next_visit_time: time | None = None
+    next_visit_hospital: str | None = Field(default=None, max_length=150)
     viewer_visible: bool = True
     viewer_note: str | None = Field(default=None, max_length=2000)
     metrics: dict[str, FiniteFloat] = Field(default_factory=dict, max_length=40)
@@ -67,6 +68,7 @@ class CheckupSummary(BaseModel):
     ga_days: int | None
     next_visit_date: date | None
     next_visit_time: time | None
+    next_visit_hospital: str | None
 
 
 class AttachmentDetails(BaseModel):
@@ -144,7 +146,10 @@ def save_checkup(
     time_changed = checkup.visit_time != payload.visit_time
     if visit_changed or checkup.ga_days is None:
         checkup.ga_days = gestational_days(pregnancy.edd_date, payload.visit_date)
-    for key, value in payload.model_dump(exclude={"metrics", "version"}).items():
+    excluded = {"metrics", "version"}
+    if "next_visit_hospital" not in payload.model_fields_set:
+        excluded.add("next_visit_hospital")
+    for key, value in payload.model_dump(exclude=excluded).items():
         setattr(checkup, key, None if value == "" else value)
     db.add(checkup)
     db.flush()

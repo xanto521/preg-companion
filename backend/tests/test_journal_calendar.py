@@ -25,7 +25,8 @@ class JournalCalendarTest(TestCase):
         self.db.flush()
         checkup = Checkup(
             pregnancy_id=pregnancy.id, visit_date=date(2026, 10, 15),
-            next_visit_date=date(2026, 11, 20), viewer_visible=False,
+            hospital="本次医院", next_visit_date=date(2026, 11, 20),
+            next_visit_hospital="预约医院", viewer_visible=False,
         )
         daily = DailyLog(log_date=date(2026, 11, 1))
         old_plan = SupplementPlan(name="Paused", start_date=date(2026, 10, 1), active=False)
@@ -46,6 +47,7 @@ class JournalCalendarTest(TestCase):
         self.assertEqual(len(items), 5)
         appointment, = [item for item in items if item.kind == "checkup"]
         self.assertEqual((appointment.state, appointment.record_id), ("appointment", checkup.id))
+        self.assertEqual(appointment.detail, "预约医院")
         note, = [item for item in items if item.kind == "note"]
         self.assertEqual(note.start, date(2026, 11, 1))
         supplement, = [item for item in items if item.kind == "supplement"]
@@ -55,4 +57,9 @@ class JournalCalendarTest(TestCase):
         self.assertGreaterEqual(window.end, date(2026, 11, 1))
         prev = journal_month(self.db, 2026, 10, zone, today)
         self.assertIn(window, prev)
-        self.assertTrue(any(item.state == "completed" and item.record_id == checkup.id for item in prev))
+        completed, = [item for item in prev if item.kind == "checkup"]
+        self.assertEqual((completed.state, completed.record_id, completed.detail), ("completed", checkup.id, "本次医院"))
+        checkup.next_visit_hospital = None
+        self.db.commit()
+        default_appointment, = [item for item in journal_month(self.db, 2026, 11, zone, today) if item.kind == "checkup"]
+        self.assertEqual(default_appointment.detail, "本次医院")

@@ -76,6 +76,7 @@ class Checkup(SoftDeletedRecord, Base):
     advice: Mapped[str | None] = mapped_column(Text)
     next_visit_date: Mapped[date | None]
     next_visit_time: Mapped[time | None]
+    next_visit_hospital: Mapped[str | None] = mapped_column(Text)
     viewer_visible: Mapped[bool] = mapped_column(server_default=true())
     viewer_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=utc_now)

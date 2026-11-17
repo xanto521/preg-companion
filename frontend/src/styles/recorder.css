@@ -300,7 +300,33 @@
 }
 
 .meal-card h3 { margin: 0; font-size: 1rem; font-weight: 500; }
+.meal-field { position: relative; }
+.meal-field input { padding-inline-end: 3.25rem; }
+.meal-field .meal-camera {
+  position: absolute;
+  inset-inline-end: 2px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.meal-camera:hover, .meal-camera:focus-visible { background: var(--color-primary-soft); }
+.meal-pending small { min-inline-size: 0; overflow-wrap: anywhere; }
 .meal-image { display: block; inline-size: 100%; block-size: 9rem; object-fit: contain; background: var(--color-bg); border-radius: var(--radius-sm); }
+
+.meal-photo-dialog {
+  box-sizing: border-box;
+  inline-size: min(20rem, calc(100% - 2rem));
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.meal-photo-dialog::backdrop { background: rgb(31 29 36 / 42%); }
+.meal-photo-actions { display: grid; gap: 0.5rem; margin-block-start: 0.75rem; }
+.meal-photo-actions > button { justify-self: stretch; }
 .entry-chip { border-color: var(--color-border); }
 .entry-chip[aria-pressed='true'] { background: var(--color-primary-soft); border-color: var(--color-primary); }
 .entry-content { white-space: pre-wrap; overflow-wrap: anywhere; }

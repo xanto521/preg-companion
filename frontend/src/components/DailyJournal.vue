@@ -13,6 +13,11 @@ const custom = ref('')
 const queued = ref({})
 const removePhotos = ref({})
 const symptomsSection = ref(null)
+const photoDialog = ref(null)
+const photoMeal = ref(null)
+const cameraInput = ref(null)
+const pictureInput = ref(null)
+const photoTypes = 'image/jpeg,image/png,image/webp'
 const meals = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐' }
 const symptomChoices = ['恶心', '反酸', '乏力', '头晕', '胃口变化', '睡眠不佳']
 
@@ -81,14 +86,25 @@ function addSymptom() {
   custom.value = ''
 }
 
-function choosePhoto(kind, event) {
+function openPhotoDialog(kind) {
+  photoMeal.value = kind
+  photoDialog.value.showModal()
+}
+
+function pickPhoto(input) {
+  photoDialog.value.close()
+  input.click()
+}
+
+function choosePhoto(event) {
   const file = event.target.files[0]
   event.target.value = ''
-  if (!file) return
+  if (!file || !photoMeal.value || busy.value) return
   if (file.size > 20 * 1024 * 1024) {
     showTip('每张照片最多 20 MB。', 'error')
     return
   }
+  const kind = photoMeal.value
   queued.value[kind] = file
   delete removePhotos.value[kind]
 }
@@ -139,17 +155,22 @@ async function save() {
         <div class="field-row">
           <div v-for="(label, kind) in meals" :key="kind" class="meal-card fields">
             <h3>{{ label }}</h3>
-            <label class="field">
-              <span>吃了什么</span>
-              <input v-model="record.meals[kind]" maxlength="500" placeholder="记一句就好">
-            </label>
+            <div class="field meal-field">
+              <input v-model="record.meals[kind]" maxlength="500" placeholder="记一句就好" :aria-label="`${label}吃了什么`">
+              <button class="button-text meal-camera" type="button" aria-haspopup="dialog"
+                :aria-label="`${record.photos[kind] || queued[kind] ? '更换' : '添加'}${label}照片`"
+                @click="openPhotoDialog(kind)">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4.5 7h3l1.7-2.5h5.6L16.5 7h3A2.5 2.5 0 0 1 22 9.5v7A2.5 2.5 0 0 1 19.5 19h-15A2.5 2.5 0 0 1 2 16.5v-7A2.5 2.5 0 0 1 4.5 7Z" />
+                  <circle cx="12" cy="12.75" r="3.25" />
+                </svg>
+              </button>
+            </div>
             <img v-if="record.photos[kind] && !removePhotos[kind] && !queued[kind]"
               class="meal-image" :src="`/api/daily/${day}/meals/${kind}/photo/${record.photos[kind].id}`"
               :alt="`${label}照片`" loading="lazy">
-            <label class="field"><span>{{ record.photos[kind] ? '更换照片' : '添加照片' }}</span>
-              <input type="file" accept="image/jpeg,image/png,image/webp" @change="choosePhoto(kind, $event)">
-            </label>
-            <div v-if="queued[kind]" class="section-heading">
+            <div v-if="queued[kind]" class="section-heading meal-pending">
               <small>{{ queued[kind].name }} · 待上传</small>
               <button class="button-text" type="button" @click="delete queued[kind]">取消选择</button>
             </div>
@@ -184,4 +205,15 @@ async function save() {
       <button class="button-primary" type="submit" :disabled="busy">{{ busy ? '正在保存…' : '保存当天记录' }}</button>
     </div>
   </form>
+
+  <dialog ref="photoDialog" class="meal-photo-dialog" aria-labelledby="meal-photo-title">
+    <h2 id="meal-photo-title">{{ meals[photoMeal] }}照片</h2>
+    <div class="meal-photo-actions">
+      <button class="button-secondary" type="button" @click="pickPhoto(cameraInput)">拍照</button>
+      <button class="button-secondary" type="button" @click="pickPhoto(pictureInput)">从相册或文件选择</button>
+      <button class="button-text" type="button" @click="photoDialog.close()">取消</button>
+    </div>
+  </dialog>
+  <input ref="cameraInput" type="file" :accept="photoTypes" capture="environment" hidden @change="choosePhoto">
+  <input ref="pictureInput" type="file" :accept="photoTypes" hidden @change="choosePhoto">
 </template>

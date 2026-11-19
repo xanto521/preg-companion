@@ -156,10 +156,14 @@ onUnmounted(() => {
         <p class="family-secondary">预产期 {{ summary.pregnancy.due_date }}</p>
       </section>
 
-      <section v-if="summary.next_appointment" class="family-panel family-next">
-        <h2>下次产检</h2>
-        <p><strong>{{ summary.next_appointment.day }} {{ displayTime(summary.next_appointment.time) }}</strong></p>
-        <p v-if="summary.next_appointment.hospital" class="family-entry-text">{{ summary.next_appointment.hospital }}</p>
+      <section v-if="summary.appointments?.length" class="family-panel family-next">
+        <h2>产检预约</h2>
+        <ul class="appointment-preview">
+          <li v-for="(record, index) in summary.appointments" :key="index">
+            <strong>{{ record.day }} {{ displayTime(record.time) }}</strong>
+            <small v-if="record.hospital" class="family-entry-text">{{ record.hospital }}</small>
+          </li>
+        </ul>
       </section>
 
       <section v-if="summary.last_checkup" class="family-panel">

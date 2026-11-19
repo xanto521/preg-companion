@@ -1,6 +1,6 @@
 from sqlalchemy import and_
 
-from app.db.models import Checkup, DailyLog, Note
+from app.db.models import Appointment, Checkup, DailyLog, Note
 
 
 def visible_checkup():
@@ -13,3 +13,7 @@ def visible_daily_log():
 
 def visible_note():
     return and_(Note.viewer_visible.is_(True), Note.deleted_at.is_(None))
+
+
+def visible_appointment():
+    return and_(Appointment.viewer_visible.is_(True), Appointment.deleted_at.is_(None))

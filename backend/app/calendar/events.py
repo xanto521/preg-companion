@@ -5,10 +5,10 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Checkup, MilestoneRule, SupplementPlan
+from app.db.models import Appointment, MilestoneRule, SupplementPlan
 from app.domain.milestones import milestone_window
 from app.domain.pregnancy import current_pregnancy
-from app.domain.visibility import visible_checkup
+from app.domain.visibility import visible_appointment
 
 DAY = timedelta(days=1)
 HOUR = timedelta(hours=1)
@@ -27,13 +27,11 @@ class CalendarEvent:
     location: str | None = None
 
 
-def checkup_event(checkup: Checkup, zone: ZoneInfo) -> CalendarEvent | None:
-    day = checkup.next_visit_date
-    if day is None:
-        return None
+def appointment_event(appointment: Appointment, zone: ZoneInfo) -> CalendarEvent | None:
+    day = appointment.day
     try:
-        if checkup.next_visit_time:
-            start = datetime.combine(day, checkup.next_visit_time, zone)
+        if appointment.time:
+            start = datetime.combine(day, appointment.time, zone)
             end = (start.astimezone(UTC) + HOUR).astimezone(zone)
             alarms = (-DAY, -2 * HOUR)
         else:
@@ -42,8 +40,8 @@ def checkup_event(checkup: Checkup, zone: ZoneInfo) -> CalendarEvent | None:
     except OverflowError:
         return None
     return CalendarEvent(
-        f"checkup-{checkup.id}", "产检", start, end, checkup.version, checkup.updated_at, alarms,
-        location=checkup.appointment_hospital,
+        f"checkup-{appointment.id}", "产检", start, end, appointment.version, appointment.updated_at, alarms,
+        location=appointment.hospital,
     )
 
 
@@ -76,6 +74,12 @@ def supplement_events(db: Session, zone: ZoneInfo) -> list[CalendarEvent]:
 
 def collect_events(db: Session, zone: ZoneInfo) -> list[CalendarEvent]:
     events = supplement_events(db, zone)
+    appointments = db.scalars(select(Appointment).where(visible_appointment()).order_by(Appointment.id))
+    for appointment in appointments:
+        event = appointment_event(appointment, zone)
+        if event:
+            events.append(event)
+
     pregnancy = current_pregnancy(db)
     if pregnancy is None:
         return events
@@ -85,16 +89,6 @@ def collect_events(db: Session, zone: ZoneInfo) -> list[CalendarEvent]:
             f"edd-{pregnancy.id}", "预产期", pregnancy.edd_date, pregnancy.edd_date + DAY,
             pregnancy.version, pregnancy.updated_at, (-7 * DAY,),
         ))
-    checkups = db.scalars(select(Checkup).where(
-        Checkup.pregnancy_id == pregnancy.id,
-        visible_checkup(),
-        Checkup.next_visit_date.is_not(None),
-    ).order_by(Checkup.id))
-    for checkup in checkups:
-        event = checkup_event(checkup, zone)
-        if event:
-            events.append(event)
-
     rules = db.scalars(select(MilestoneRule).where(
         MilestoneRule.enabled.is_(True), MilestoneRule.deleted_at.is_(None),
     ).order_by(MilestoneRule.id))

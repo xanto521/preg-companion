@@ -10,12 +10,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Checkup, DailyLog, MealEntry, Note, SymptomEntry, utc_now
+from app.db.models import Appointment, Checkup, DailyLog, MealEntry, Note, SymptomEntry, utc_now
 from app.db.session import Database
 from app.domain.gestation import gestational_days
 from app.domain.pregnancy import current_pregnancy
 from app.domain.trends import TrendMetric, TrendSeries, trend_metrics, trend_series
-from app.domain.visibility import visible_checkup, visible_daily_log, visible_note
+from app.domain.visibility import visible_appointment, visible_checkup, visible_daily_log, visible_note
 from app.security.sharing import VIEW_SCOPE, active_share, valid_share
 
 router = APIRouter(prefix="/view", tags=["family view"], include_in_schema=False)
@@ -54,6 +54,7 @@ class SharedEntry(BaseModel):
 class SharedSummary(BaseModel):
     pregnancy: SharedPregnancy | None
     next_appointment: SharedAppointment | None
+    appointments: list[SharedAppointment]
     last_checkup: SharedEntry | None
     metrics: list[TrendMetric]
     entries: list[SharedEntry]
@@ -109,7 +110,6 @@ def summary(token: str, request: Request, db: Database) -> SharedSummary:
     today = datetime.now(zone).date()
     pregnancy = current_pregnancy(db)
     shared_pregnancy = None
-    next_appointment = None
     checkups = []
     if pregnancy:
         shared_pregnancy = SharedPregnancy(
@@ -124,14 +124,12 @@ def summary(token: str, request: Request, db: Database) -> SharedSummary:
                 Checkup.visit_date.desc(), Checkup.visit_time.desc(), Checkup.id.desc(),
             ).limit(RECENT_LIMIT))
         ]
-        appointment = db.scalar(visible.where(Checkup.next_visit_date >= today).order_by(
-            Checkup.next_visit_date, Checkup.next_visit_time, Checkup.id,
-        ).limit(1))
-        if appointment and appointment.next_visit_date is not None:
-            next_appointment = SharedAppointment(
-                day=appointment.next_visit_date, time=appointment.next_visit_time,
-                hospital=appointment.appointment_hospital,
-            )
+    appointments = [
+        SharedAppointment(day=entry.day, time=entry.time, hospital=entry.hospital)
+        for entry in db.scalars(select(Appointment).where(
+            visible_appointment(), Appointment.day >= today,
+        ).order_by(Appointment.day, Appointment.time, Appointment.id))
+    ]
 
     daily_entries = db.scalars(select(DailyLog).where(visible_daily_log()).order_by(
         DailyLog.log_date.desc(),
@@ -153,7 +151,8 @@ def summary(token: str, request: Request, db: Database) -> SharedSummary:
         entries.append(SharedEntry(kind="note", day=day, title=note.title, text=note.body, tags=note.tags or []))
     entries.sort(key=lambda item: item.day, reverse=True)
     return SharedSummary(
-        pregnancy=shared_pregnancy, next_appointment=next_appointment,
+        pregnancy=shared_pregnancy, next_appointment=appointments[0] if appointments else None,
+        appointments=appointments,
         last_checkup=checkups[0] if checkups else None,
         metrics=trend_metrics(db, viewer=True), entries=entries[:RECENT_LIMIT],
     )

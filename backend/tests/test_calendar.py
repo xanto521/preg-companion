@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.calendar.events import collect_events
 from app.calendar.ics import render_calendar
 from app.db.connection import create_sqlite_engine
-from app.db.models import Base, Checkup, MilestoneRule, Pregnancy, SupplementCheck, SupplementPlan
+from app.db.models import Appointment, Base, MilestoneRule, Pregnancy, SupplementCheck, SupplementPlan
 
 
 class CalendarTest(TestCase):
@@ -33,36 +33,28 @@ class CalendarTest(TestCase):
 
     def test_feed_is_stable_and_filters_private_data(self):
         self.db.add_all([
-            Checkup(
-                pregnancy_id=self.pregnancy.id,
-                visit_date=date(2026, 11, 1),
-                hospital="private-original-hospital",
-                next_visit_date=date(2026, 12, 1),
-                next_visit_time=time(9, 30),
-                next_visit_hospital="预约医院, 东院区; 二楼",
+            Appointment(
+                day=date(2026, 12, 1),
+                time=time(9, 30),
+                hospital="预约医院, 东院区; 二楼",
+                title="private-project",
                 viewer_visible=True,
-                advice="private-advice",
                 updated_at=self.stamp,
             ),
-            Checkup(
-                pregnancy_id=self.pregnancy.id,
-                visit_date=date(2026, 11, 2),
-                next_visit_date=date(2026, 12, 2),
-                next_visit_hospital="private-appointment",
+            Appointment(
+                day=date(2026, 12, 2),
+                hospital="private-appointment",
                 viewer_visible=False,
             ),
-            Checkup(
-                pregnancy_id=self.pregnancy.id,
-                visit_date=date(2026, 11, 3),
-                next_visit_date=date(2026, 12, 3),
-                next_visit_hospital="private-deleted-hospital",
+            Appointment(
+                day=date(2026, 12, 3),
+                hospital="private-deleted-hospital",
+                viewer_visible=True,
                 deleted_at=self.stamp,
             ),
-            Checkup(
-                pregnancy_id=self.pregnancy.id,
-                visit_date=date(2026, 11, 4),
-                hospital="原医院",
-                next_visit_date=date(2026, 12, 4),
+            Appointment(
+                day=date(2026, 12, 1),
+                hospital="另一家医院",
                 viewer_visible=True,
             ),
         ])
@@ -84,9 +76,9 @@ class CalendarTest(TestCase):
             [timedelta(days=-1), timedelta(hours=-2)],
         )
         all_day = items["checkup-4@preg.test"]
-        self.assertEqual(all_day["LOCATION"], "原医院")
+        self.assertEqual(all_day["LOCATION"], "另一家医院")
         self.assertNotIn("LOCATION", items["edd-1@preg.test"])
-        self.assertEqual(all_day.decoded("DTEND"), date(2026, 12, 5))
+        self.assertEqual(all_day.decoded("DTEND"), date(2026, 12, 2))
         self.assertEqual([a.decoded("TRIGGER") for a in all_day.walk("VALARM")], [timedelta(days=-1)])
 
     def test_correction_reschedules_window_with_same_uid(self):

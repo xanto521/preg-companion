@@ -19,7 +19,7 @@ const newLinkId = ref(null)
 const linkInput = ref(null)
 const revoking = ref(null)
 const linkHelp = calendar
-  ? '请将链接添加到手机的日历订阅。允许家人查看的产检会同步下次预约，医院显示在地点栏。'
+  ? '请将链接添加到手机的日历订阅。勾选同步的产检预约会出现在订阅日历中，医院显示在地点栏。'
   : '持有链接的家人可以查看你设为可见的记录和指标。可以为不同家人生成独立链接。'
 const revokeMessage = calendar
   ? '吊销后链接立即停止同步。已下载的日程由日历应用管理。'

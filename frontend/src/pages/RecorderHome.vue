@@ -3,6 +3,7 @@ import TipHost from '../components/TipHost.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { showTip, showValidationTip } from '../tips'
 import { api } from '../api/recorder'
+import AppointmentJournal from '../components/AppointmentJournal.vue'
 import AppBrand from '../components/AppBrand.vue'
 import CheckupForm from '../components/CheckupForm.vue'
 import DailyJournal from '../components/DailyJournal.vue'
@@ -20,6 +21,7 @@ import { displayTime, gestationLabel, sources } from '../components/pregnancy'
 const session = ref(null)
 const snapshot = ref(null)
 const records = ref([])
+const appointments = ref([])
 const options = ref([])
 const setupToken = ref('')
 const password = ref('')
@@ -35,14 +37,18 @@ const busy = ref(true)
 const page = ref(null)
 const isSetup = computed(() => Boolean(setupToken.value && !session.value?.configured))
 const pregnancy = computed(() => snapshot.value?.pregnancy)
-const nextVisit = computed(() => {
-  const today = snapshot.value?.today || ''
-  return records.value
-    .filter(record => record.next_visit_date && record.next_visit_date >= today)
-    .sort((a, b) => (a.next_visit_date + (a.next_visit_time || '')).localeCompare(
-      b.next_visit_date + (b.next_visit_time || ''),
-    ))[0]
-})
+function recentNames(items, field) {
+  return [...new Set([...items]
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || b.id - a.id)
+    .map(item => item[field]?.trim())
+    .filter(Boolean))]
+}
+
+const hospitals = computed(() => recentNames([...records.value, ...appointments.value], 'hospital'))
+const doctors = computed(() => recentNames(records.value, 'doctor'))
+const upcomingAppointments = computed(() =>
+  appointments.value.filter(record => record.day >= snapshot.value?.today),
+)
 const countdown = computed(() => {
   const days = pregnancy.value.days_until_due
   if (days === 0) return '今天是预产期'
@@ -68,6 +74,7 @@ function fail(problem) {
     session.value = { authenticated: false, configured: true }
     snapshot.value = null
     records.value = []
+    appointments.value = []
     selected.value = null
     calendarDestination.value = null
     view.value = 'home'
@@ -91,16 +98,18 @@ function returnFromEntry() {
 
 function openCalendarEntry(entry, day) {
   calendarDestination.value = { ...entry, day }
+  if (entry.target === 'appointments') return openAppointments()
   if (entry.target === 'checkup') return openCheckup(entry.record_id)
   return changeView(entry.target)
 }
 
 async function loadDashboard() {
-  const [current, checkups, definitions] = await Promise.all([
-    api('/pregnancy'), api('/checkups'), api('/metrics/definitions'),
+  const [current, checkups, definitions, scheduled] = await Promise.all([
+    api('/pregnancy'), api('/checkups'), api('/metrics/definitions'), api('/appointments'),
   ])
   snapshot.value = current
   records.value = checkups
+  appointments.value = scheduled
   options.value = definitions
 }
 
@@ -148,6 +157,7 @@ async function logout() {
     session.value = { authenticated: false, configured: true }
     snapshot.value = null
     records.value = []
+    appointments.value = []
     selected.value = null
     try {
       for (const key of Object.keys(sessionStorage)) {
@@ -174,6 +184,26 @@ async function openCheckup(id = null) {
   } finally {
     busy.value = false
   }
+}
+
+async function openAppointments() {
+  busy.value = true
+  try {
+    appointments.value = await api('/appointments')
+    await changeView('appointments')
+  } catch (problem) {
+    calendarDestination.value = null
+    fail(problem)
+  } finally {
+    busy.value = false
+  }
+}
+
+function appointmentChanged(record) {
+  const next = appointments.value.filter(item => item.id !== record.id)
+  if (!record.removed) next.push(record)
+  appointments.value = next.sort((a, b) => a.day.localeCompare(b.day)
+    || (a.time || '').localeCompare(b.time || '') || a.id - b.id)
 }
 
 async function closeEditor() {
@@ -285,8 +315,10 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
         :today="calendarDestination?.day || snapshot.today" :checkups="records"
         :initial-note-id="calendarDestination?.record_id" :new-note="calendarDestination?.target === 'notes' && !calendarDestination.record_id"
         @close="returnFromEntry" @switch="changeView" @failed="fail" />
+      <AppointmentJournal v-else-if="view === 'appointments'" :records="appointments" :today="snapshot.today"
+        :hospitals="hospitals" :initial-id="calendarDestination?.record_id" @close="returnFromEntry" @changed="appointmentChanged" @failed="fail" />
       <CheckupForm v-else-if="view === 'checkup'" :record="selected" :snapshot="snapshot"
-        :options="options" :previous="records[0]" @saved="checkupSaved" @close="closeEditor" @failed="fail" />
+        :options="options" :hospitals="hospitals" :doctors="doctors" :previous="records[0]" @saved="checkupSaved" @close="closeEditor" @failed="fail" />
 
       <template v-else>
         <div class="page-heading">
@@ -311,10 +343,19 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
             <button class="button-text settings-action" type="button" @click="showTip('填入预产期后，就能查看当前孕周并录入产检。')">预产期说明</button>
             <button class="button-primary" type="button" @click="changeView('pregnancy')">设置预产期</button>
           </section>
-          <section v-if="nextVisit" class="appointment-card panel">
-            <h2>下次产检</h2>
-            <p><strong>{{ nextVisit.next_visit_date }} {{ displayTime(nextVisit.next_visit_time) }}</strong></p>
-            <p v-if="nextVisit.next_visit_hospital || nextVisit.hospital">{{ nextVisit.next_visit_hospital || nextVisit.hospital }}</p>
+          <section class="appointment-card panel">
+            <div class="section-heading">
+              <h2>产检预约</h2>
+              <button class="button-secondary" type="button" :disabled="busy" @click="openAppointments">管理预约</button>
+            </div>
+            <p v-if="!upcomingAppointments.length">近期没有预约。</p>
+            <ul v-else class="appointment-preview">
+              <li v-for="record in upcomingAppointments.slice(0, 3)" :key="record.id">
+                <strong>{{ record.day }} {{ displayTime(record.time) }}</strong>
+                <small>{{ [record.title, record.hospital].filter(Boolean).join(' · ') || '产检预约' }}</small>
+              </li>
+            </ul>
+            <p v-if="upcomingAppointments.length > 3">共 {{ upcomingAppointments.length }} 项即将到来的预约</p>
           </section>
         </div>
 

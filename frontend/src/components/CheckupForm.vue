@@ -1,4 +1,5 @@
 <script setup>
+import HistoryInput from './HistoryInput.vue'
 import ConfirmTip from './ConfirmTip.vue'
 import { computed, ref, watch } from 'vue'
 import { showTip } from '../tips'
@@ -9,6 +10,8 @@ const props = defineProps({
   record: { type: Object, default: null },
   snapshot: { type: Object, required: true },
   options: { type: Array, required: true },
+  hospitals: { type: Array, required: true },
+  doctors: { type: Array, required: true },
   previous: { type: Object, default: null },
 })
 const emit = defineEmits(['saved', 'close', 'failed'])
@@ -21,9 +24,6 @@ const field = ref({
   doctor: props.record ? props.record.doctor || '' : props.previous?.doctor || '',
   summary: props.record?.summary || '',
   advice: props.record?.advice || '',
-  next_visit_date: props.record?.next_visit_date || '',
-  next_visit_time: displayTime(props.record?.next_visit_time),
-  next_visit_hospital: props.record?.next_visit_hospital ?? null,
   viewer_visible: props.record?.viewer_visible ?? true,
   viewer_note: props.record?.viewer_note || '',
   metrics: { ...props.record?.metrics },
@@ -42,18 +42,15 @@ const attachmentKinds = { report: '报告', ultrasound: '超声图', other: '其
 try {
   const draft = JSON.parse(sessionStorage.getItem(draftKey))
   if (draft?.version === (props.record?.version ?? null) && draft.field) {
-    Object.assign(field.value, draft.field)
+    for (const key of Object.keys(field.value)) {
+      if (key in draft.field) field.value[key] = draft.field[key]
+    }
     showTip('已恢复此标签页的草稿。')
   }
 } catch {}
 
 const showExtra = ref(rankedOptions.some(option => !commonCodes.includes(option.code) && field.value.metrics[option.code] != null))
 const visibleOptions = computed(() => showExtra.value ? rankedOptions : rankedOptions.filter(option => commonCodes.includes(option.code)))
-const appointmentHospital = computed({
-  get: () => field.value.next_visit_hospital ?? field.value.hospital,
-  set: value => { field.value.next_visit_hospital = value },
-})
-
 watch(field, value => {
   if (saving.value) return
   try {
@@ -87,8 +84,7 @@ async function save() {
   saving.value = true
   try {
     const data = { ...field.value }
-    for (const key of ['visit_time', 'next_visit_date', 'next_visit_time']) data[key] ||= null
-    data.next_visit_hospital = data.next_visit_hospital?.trim() || null
+    data.visit_time ||= null
     data.metrics = Object.fromEntries(Object.entries(data.metrics).filter(([, value]) => value !== '' && value != null))
     const id = saved.value?.id
     if (id) data.version = saved.value.version
@@ -153,8 +149,8 @@ async function remove() {
         </div>
         <p v-if="days !== null" class="gestation-preview">{{ gestationLabel(days) }}</p>
         <div class="field-row">
-          <label class="field"><span>医院</span><input v-model="field.hospital" maxlength="150"></label>
-          <label class="field"><span>医生</span><input v-model="field.doctor" maxlength="100"></label>
+          <HistoryInput v-model="field.hospital" label="医院" :maxlength="150" :options="hospitals" />
+          <HistoryInput v-model="field.doctor" label="医生" :maxlength="100" :options="doctors" />
         </div>
       </section>
 
@@ -205,18 +201,6 @@ async function remove() {
         <h2>医嘱与小结</h2>
         <label class="field"><span>小结</span><textarea v-model="field.summary" rows="2" maxlength="6000"></textarea></label>
         <label class="field"><span>医嘱</span><textarea v-model="field.advice" rows="2" maxlength="6000"></textarea></label>
-      </section>
-
-      <section class="panel fields">
-        <h2>下次预约</h2>
-        <div class="field-row">
-          <label class="field"><span>预约日期</span><input v-model="field.next_visit_date" type="date" :min="field.visit_date"></label>
-          <label class="field"><span>预约时间</span><input v-model="field.next_visit_time" type="time"></label>
-        </div>
-        <label class="field">
-          <span>预约医院</span>
-          <input v-model="appointmentHospital" maxlength="150" placeholder="默认与本次就诊医院相同">
-        </label>
       </section>
 
       <section class="panel fields">

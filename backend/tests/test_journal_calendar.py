@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from app.db.connection import create_sqlite_engine
-from app.db.models import Base, Checkup, DailyLog, MealEntry, MilestoneRule, Note, Pregnancy, SupplementCheck, SupplementPlan
+from app.db.models import Appointment, Base, Checkup, DailyLog, MealEntry, MilestoneRule, Note, Pregnancy, SupplementCheck, SupplementPlan
 from app.domain.journal_calendar import journal_month
 
 
@@ -25,12 +25,13 @@ class JournalCalendarTest(TestCase):
         self.db.flush()
         checkup = Checkup(
             pregnancy_id=pregnancy.id, visit_date=date(2026, 10, 15),
-            hospital="本次医院", next_visit_date=date(2026, 11, 20),
-            next_visit_hospital="预约医院", viewer_visible=False,
+            hospital="本次医院", viewer_visible=False,
         )
+        booking = Appointment(id=99, day=date(2026, 11, 20), hospital="预约医院")
+        checkup.id = 1
         daily = DailyLog(log_date=date(2026, 11, 1))
         old_plan = SupplementPlan(name="Paused", start_date=date(2026, 10, 1), active=False)
-        self.db.add_all([checkup, daily, old_plan])
+        self.db.add_all([checkup, booking, daily, old_plan])
         self.db.flush()
         # This near-midnight UTC note belongs to November in the configured timezone.
         self.db.add_all([
@@ -46,7 +47,7 @@ class JournalCalendarTest(TestCase):
         items = journal_month(self.db, 2026, 11, zone, today)
         self.assertEqual(len(items), 5)
         appointment, = [item for item in items if item.kind == "checkup"]
-        self.assertEqual((appointment.state, appointment.record_id), ("appointment", checkup.id))
+        self.assertEqual((appointment.state, appointment.target, appointment.record_id), ("appointment", "appointments", booking.id))
         self.assertEqual(appointment.detail, "预约医院")
         note, = [item for item in items if item.kind == "note"]
         self.assertEqual(note.start, date(2026, 11, 1))
@@ -59,7 +60,3 @@ class JournalCalendarTest(TestCase):
         self.assertIn(window, prev)
         completed, = [item for item in prev if item.kind == "checkup"]
         self.assertEqual((completed.state, completed.record_id, completed.detail), ("completed", checkup.id, "本次医院"))
-        checkup.next_visit_hospital = None
-        self.db.commit()
-        default_appointment, = [item for item in journal_month(self.db, 2026, 11, zone, today) if item.kind == "checkup"]
-        self.assertEqual(default_appointment.detail, "本次医院")

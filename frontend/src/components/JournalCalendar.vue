@@ -57,7 +57,7 @@ const selectedEntries = computed(() => [...(entriesByDay.value[day.value] || [])
   (a.at || '').localeCompare(b.at || '') || a.title.localeCompare(b.title, 'zh-CN'),
 ))
 
-const actions = { daily: '打开每日记录', symptoms: '打开症状记录', checkup: '打开产检记录',
+const actions = { daily: '打开每日记录', symptoms: '打开症状记录', checkup: '打开产检记录', appointments: '打开产检预约',
   supplements: '打开补剂打卡', notes: '打开备注', milestones: '打开里程碑规则', pregnancy: '打开预产期设置' }
 const emptyAction = computed(() => {
   if (filter.value === 'symptom') return { target: 'symptoms', label: '记当天症状' }

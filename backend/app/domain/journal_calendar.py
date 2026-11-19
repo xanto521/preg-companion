@@ -5,10 +5,10 @@ from typing import Literal
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Checkup, DailyLog, MealEntry, MilestoneRule, Note, SupplementCheck, SupplementPlan, SymptomEntry
+from app.db.models import Appointment, Checkup, DailyLog, MealEntry, MilestoneRule, Note, SupplementCheck, SupplementPlan, SymptomEntry
 from app.domain.milestones import milestone_window
 from app.domain.pregnancy import current_pregnancy
 from app.domain.supplements import is_scheduled
@@ -26,7 +26,7 @@ class JournalEvent(BaseModel):
     state: Literal["recorded", "completed", "appointment", "taken", "pending", "planned", "window"]
     title: str
     detail: str | None = None
-    target: Literal["daily", "symptoms", "checkup", "supplements", "notes", "milestones", "pregnancy"]
+    target: Literal["daily", "symptoms", "checkup", "appointments", "supplements", "notes", "milestones", "pregnancy"]
     record_id: int | None = None
 
 
@@ -62,22 +62,29 @@ def daily_events(db: Session, first: date, last: date) -> list[JournalEvent]:
 def checkup_events(db: Session, first: date, last: date) -> list[JournalEvent]:
     records = db.scalars(select(Checkup).where(
         Checkup.deleted_at.is_(None),
-        or_(Checkup.visit_date.between(first, last), Checkup.next_visit_date.between(first, last)),
+        Checkup.visit_date.between(first, last),
     ).order_by(Checkup.id))
-    events = []
-    for record in records:
-        if first <= record.visit_date <= last:
-            events.append(JournalEvent(
-                key=f"checkup-{record.id}", kind="checkup", start=record.visit_date, at=record.visit_time,
-                state="completed", title="产检记录", detail=record.hospital, target="checkup", record_id=record.id,
-            ))
-        if record.next_visit_date and first <= record.next_visit_date <= last:
-            events.append(JournalEvent(
-                key=f"appointment-{record.id}", kind="checkup", start=record.next_visit_date, at=record.next_visit_time,
-                state="appointment", title="下次产检", detail=record.appointment_hospital,
-                target="checkup", record_id=record.id,
-            ))
-    return events
+    return [
+        JournalEvent(
+            key=f"checkup-{record.id}", kind="checkup", start=record.visit_date, at=record.visit_time,
+            state="completed", title="产检记录", detail=record.hospital, target="checkup", record_id=record.id,
+        )
+        for record in records
+    ]
+
+
+def appointment_events(db: Session, first: date, last: date) -> list[JournalEvent]:
+    records = db.scalars(select(Appointment).where(
+        Appointment.deleted_at.is_(None), Appointment.day.between(first, last),
+    ).order_by(Appointment.id))
+    return [
+        JournalEvent(
+            key=f"appointment-{record.id}", kind="checkup", start=record.day, at=record.time,
+            state="appointment", title=record.title or "产检预约", detail=record.hospital,
+            target="appointments", record_id=record.id,
+        )
+        for record in records
+    ]
 
 
 def supplement_events(db: Session, first: date, last: date, today: date) -> list[JournalEvent]:
@@ -142,6 +149,7 @@ def journal_month(db: Session, year: int, month: int, zone: ZoneInfo, today: dat
     last = date(year, month, monthrange(year, month)[1])
     return [
         *checkup_events(db, first, last),
+        *appointment_events(db, first, last),
         *daily_events(db, first, last),
         *supplement_events(db, first, last, today),
         *note_events(db, first, last, zone),

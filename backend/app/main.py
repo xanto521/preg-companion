@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.appointments import router as appointments_router
 from app.api.auth import router as auth_router
 from app.api.calendar_feed import router as calendar_router
 from app.api.checkups import router as checkups_router
@@ -44,7 +45,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.login_limiter = LoginLimiter()
     app.state.share_revocations = ShareRevocations()
     for router in (
-        health_router, auth_router, pregnancy_router, checkups_router, milestones_router,
+        health_router, auth_router, pregnancy_router, checkups_router, appointments_router, milestones_router,
         subscriptions_router, daily_router, supplements_router, notes_questions_router, trends_router, viewer_router,
         journal_calendar_router, meal_plans_router,
     ):

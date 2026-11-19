@@ -74,16 +74,20 @@ class Checkup(SoftDeletedRecord, Base):
     doctor: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
     advice: Mapped[str | None] = mapped_column(Text)
-    next_visit_date: Mapped[date | None]
-    next_visit_time: Mapped[time | None]
-    next_visit_hospital: Mapped[str | None] = mapped_column(Text)
     viewer_visible: Mapped[bool] = mapped_column(server_default=true())
     viewer_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
 
-    @property
-    def appointment_hospital(self) -> str | None:
-        return self.next_visit_hospital or self.hospital
+class Appointment(SoftDeletedRecord, Base):
+    __tablename__ = "appointment"
+    __table_args__ = (Index("ix_appointment_day", "day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[date]
+    time: Mapped[time | None]
+    hospital: Mapped[str | None] = mapped_column(Text)
+    title: Mapped[str | None] = mapped_column(Text)
+    viewer_visible: Mapped[bool] = mapped_column(server_default=false())
 
 
 class MetricDefinition(Base):

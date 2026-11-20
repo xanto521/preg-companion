@@ -18,6 +18,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /srv/backend
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN pip install --no-cache-dir uv==0.6.16 \
+    && if [ "${PIP_INDEX_URL}" != "https://pypi.org/simple" ]; then uv lock; fi \
     && uv sync --locked --no-dev \
     && groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home app \

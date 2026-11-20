@@ -49,7 +49,7 @@ docker compose up --build -d --wait
 docker compose exec -T app python -m app.security.setup http://127.0.0.1:8000
 ```
 
-构建时如需走内网镜像源，可通过构建参数指定 `PIP_INDEX_URL` 和 `NPM_REGISTRY`，默认使用官方源。可以在 `docker-compose.override.yml` 里设置，避免改动仓库文件：
+构建时如需走内网镜像源，可通过构建参数指定 `PIP_INDEX_URL` 和 `NPM_REGISTRY`，默认使用官方源。指定非官方索引时，镜像内会按该索引重新生成 `uv.lock`（版本与哈希不变，只替换下载地址），仓库中的锁文件不受影响。可以在 `docker-compose.override.yml` 里设置，避免改动仓库文件：
 
 ```yaml
 services:

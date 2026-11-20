@@ -24,8 +24,10 @@ const records = ref([])
 const appointments = ref([])
 const options = ref([])
 const setupToken = ref('')
+const username = ref(readStoredUsername())
 const password = ref('')
 const confirmPassword = ref('')
+const passwordMin = 6
 const view = ref('home')
 const selected = ref(null)
 const calendarDay = ref('')
@@ -35,7 +37,8 @@ const recipeDate = ref('')
 const recipeMeal = ref(null)
 const busy = ref(true)
 const page = ref(null)
-const isSetup = computed(() => Boolean(setupToken.value && !session.value?.configured))
+const isSetup = computed(() => Boolean(session.value && !session.value.configured))
+const usesSetupToken = computed(() => Boolean(isSetup.value && setupToken.value))
 const pregnancy = computed(() => snapshot.value?.pregnancy)
 function recentNames(items, field) {
   return [...new Set([...items]
@@ -54,6 +57,20 @@ const countdown = computed(() => {
   if (days === 0) return '今天是预产期'
   return days > 0 ? `距预产期还有 ${days} 天` : `已过预产期 ${-days} 天`
 })
+
+function readStoredUsername() {
+  try {
+    return localStorage.getItem('preg.username') || ''
+  } catch {
+    return ''
+  }
+}
+
+function rememberUsername(name) {
+  try {
+    localStorage.setItem('preg.username', name)
+  } catch {}
+}
 
 function readSetupLink() {
   const token = new URLSearchParams(window.location.hash.slice(1)).get('setup')
@@ -130,18 +147,26 @@ async function authenticate() {
     showTip('两次输入的口令不一致。', 'error')
     return
   }
+  const account = username.value.trim()
+  if (!account) {
+    showTip('请填写账号。', 'error')
+    return
+  }
+  const creating = isSetup.value
   busy.value = true
   try {
-    session.value = await api(isSetup.value ? '/auth/setup' : '/auth/login', {
-      method: 'POST',
-      data: isSetup.value ? { token: setupToken.value, password: password.value } : { password: password.value },
-    })
+    const endpoint = creating ? (usesSetupToken.value ? '/auth/setup' : '/auth/register') : '/auth/login'
+    const data = creating
+      ? { username: account, password: password.value, ...(usesSetupToken.value ? { token: setupToken.value } : {}) }
+      : { username: account, password: password.value }
+    session.value = await api(endpoint, { method: 'POST', data })
+    rememberUsername(account)
     setupToken.value = ''
     password.value = ''
     confirmPassword.value = ''
     await loadDashboard()
     await changeView('home')
-    showTip('已登录。', 'success')
+    showTip(creating ? '账号已创建。' : '已登录。', 'success')
   } catch (problem) {
     fail(problem)
   } finally {
@@ -266,22 +291,26 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readSetupLink))
     </section>
 
     <section v-else-if="!session.authenticated" class="auth-panel panel">
-      <h1>{{ isSetup ? '设置记录口令' : '记录者登录' }}</h1>
-      <form v-if="session.configured || isSetup" class="fields" @submit.prevent="authenticate">
+      <h1>{{ isSetup ? '创建记录者账号' : '记录者登录' }}</h1>
+      <form class="fields" @submit.prevent="authenticate">
         <label class="field">
-          <span>口令 <small v-if="isSetup">至少 12 个字符</small></span>
+          <span>账号</span>
+          <input v-model="username" type="text" name="username" autocomplete="username" maxlength="64" required>
+        </label>
+        <label class="field">
+          <span>口令 <small v-if="isSetup">至少 {{ passwordMin }} 个字符</small></span>
           <input v-model="password" type="password" name="password" :autocomplete="isSetup ? 'new-password' : 'current-password'"
-            :minlength="isSetup ? 12 : 1" maxlength="128" required>
+            :minlength="isSetup ? passwordMin : 1" maxlength="128" required>
         </label>
         <label v-if="isSetup" class="field">
           <span>再输入一次口令</span>
-          <input v-model="confirmPassword" type="password" name="confirm-password" autocomplete="new-password" minlength="12" maxlength="128" required>
+          <input v-model="confirmPassword" type="password" name="confirm-password" autocomplete="new-password" :minlength="passwordMin" maxlength="128" required>
         </label>
+        <p v-if="isSetup" class="auth-note">第一次使用：设定账号和口令，之后用它登录。账号会记住在这台设备上。</p>
         <button class="button-primary" type="submit" :disabled="busy">
-          {{ busy ? '请稍候…' : isSetup ? '设置并登录' : '登录' }}
+          {{ busy ? '请稍候…' : isSetup ? '创建并登录' : '登录' }}
         </button>
       </form>
-      <button v-else class="button-text" type="button" @click="showTip('请打开管理员发给你的首次设置链接。')">首次设置说明</button>
     </section>
 
     <template v-else>

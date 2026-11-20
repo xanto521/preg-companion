@@ -10,6 +10,7 @@ from argon2 import PasswordHasher
 SESSION_COOKIE = "preg_recorder"
 SESSION_TTL = timedelta(hours=12)
 SETUP_TTL = timedelta(hours=1)
+MIN_PASSWORD_LENGTH = 6
 password_hasher = PasswordHasher()
 
 

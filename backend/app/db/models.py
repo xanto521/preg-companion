@@ -19,6 +19,7 @@ class RecorderAccount(Base):
     __table_args__ = (CheckConstraint("id = 1", name="ck_recorder_account_singleton"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str | None] = mapped_column(Text)
     password_hash: Mapped[str | None] = mapped_column(Text)
     setup_hash: Mapped[str | None] = mapped_column(Text)
     setup_expires_at: Mapped[datetime | None]

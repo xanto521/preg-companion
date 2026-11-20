@@ -49,6 +49,17 @@ docker compose up --build -d --wait
 docker compose exec -T app python -m app.security.setup http://127.0.0.1:8000
 ```
 
+构建时如需走内网镜像源，可通过构建参数指定 `PIP_INDEX_URL` 和 `NPM_REGISTRY`，默认使用官方源。可以在 `docker-compose.override.yml` 里设置，避免改动仓库文件：
+
+```yaml
+services:
+  app:
+    build:
+      args:
+        PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+        NPM_REGISTRY: https://registry.npmmirror.com
+```
+
 局域网 HTTP 开发实例用于测试数据。录入真实数据时需为录入端配置 HTTPS。可选的 Caddy `https` profile 用于公开查看和日历路径，将 `PREG_PUBLIC_DOMAIN` 设置为指向主机的域名并开放 80/443 后，运行 `docker compose --profile https up --build -d --wait`。
 
 ## M1 录入

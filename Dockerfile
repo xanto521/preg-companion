@@ -1,15 +1,19 @@
 FROM node:24-bookworm-slim AS frontend
+ARG NPM_REGISTRY=https://registry.npmjs.org
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund --registry="${NPM_REGISTRY}"
 COPY frontend/ ./
 RUN npm run build
 
 FROM python:3.12-slim-bookworm
+ARG PIP_INDEX_URL=https://pypi.org/simple
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/srv/backend/.venv/bin:$PATH" \
-    PREG_DATA_DIR=/data
+    PREG_DATA_DIR=/data \
+    PIP_INDEX_URL="${PIP_INDEX_URL}" \
+    UV_INDEX_URL="${PIP_INDEX_URL}"
 
 WORKDIR /srv/backend
 COPY backend/pyproject.toml backend/uv.lock ./
